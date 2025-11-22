@@ -7,7 +7,7 @@ import { ethers } from 'ethers';
 import './Settings.css';
 
 export default function Settings() {
-  const { address, did, connect, disconnect } = useWallet();
+  const { address, did, connect, disconnect, isConnected } = useWallet();
   const queryClient = useQueryClient();
   const [notifications, setNotifications] = useState(true);
   const [theme, setTheme] = useState('dark');
@@ -48,8 +48,9 @@ export default function Settings() {
   }, [currentProfile]);
 
   const handleSaveProfile = async () => {
-    if (!did || !address) {
+    if (!did || !address || !isConnected) {
       alert('Please connect your wallet first');
+      await connect();
       return;
     }
 
@@ -66,8 +67,40 @@ export default function Settings() {
         }
 
         setNeedsWalletSign(true);
+        
+        // Ensure wallet is connected by requesting accounts
+        let accounts: string[];
+        try {
+          accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        } catch (err: any) {
+          // If request fails, try to reconnect via wallet provider
+          if (err.code === -32603 || err.code === 4001) {
+            await connect();
+            accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          } else {
+            throw err;
+          }
+        }
+        
+        if (!accounts || accounts.length === 0) {
+          throw new Error('No accounts found. Please connect your wallet.');
+        }
+
+        // Verify the connected account matches
+        if (accounts[0].toLowerCase() !== address?.toLowerCase()) {
+          // Account changed, update the wallet provider
+          await connect();
+          throw new Error('Connected account changed. Please try again.');
+        }
+
         const provider = new ethers.BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
+
+        // Verify we can get the address from signer
+        const signerAddress = await signer.getAddress();
+        if (signerAddress.toLowerCase() !== address?.toLowerCase()) {
+          throw new Error('Signer address mismatch');
+        }
 
         // Create message to sign
         const message = `Update profile:\nUsername: ${profileData.username}\nDisplay Name: ${profileData.displayName}\n\nThis will update your profile on Daemon Social.`;
@@ -76,9 +109,12 @@ export default function Settings() {
         setNeedsWalletSign(false);
       } catch (error: any) {
         setNeedsWalletSign(false);
-        if (error.code !== 4001) { // User rejected
-          alert('Failed to get wallet signature: ' + error.message);
+        if (error.code === 4001) {
+          // User rejected the signature request
+          return;
         }
+        console.error('Wallet signature error:', error);
+        alert('Failed to get wallet signature: ' + (error.message || 'Unknown error. Please try again.'));
         return;
       }
     }
