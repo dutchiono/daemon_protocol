@@ -75,8 +75,8 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
     }
   });
 
-  // Profile endpoints
-  protectedRoutes.get('/api/v1/profile/:fid', async (req, res) => {
+  // Profile endpoints (public read, protected write)
+  app.get('/api/v1/profile/:fid', async (req, res) => {
     try {
       const fid = parseInt(req.params.fid);
       const profile = await gatewayService.getProfile(fid);
@@ -166,8 +166,8 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
     }
   });
 
-  // Notifications endpoint
-  protectedRoutes.get('/api/v1/notifications/count', async (req, res) => {
+  // Notifications endpoint (public - just a count)
+  app.get('/api/v1/notifications/count', async (req, res) => {
     try {
       const { fid } = req.query;
       if (!fid) {
