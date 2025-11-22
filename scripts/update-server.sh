@@ -31,7 +31,7 @@ echo ""
 # Check if database setup is needed
 echo -e "${YELLOW}Step 2: Checking database setup...${NC}"
 if command -v psql &> /dev/null; then
-    if psql -U postgres -lqt | cut -d \| -f 1 | grep -qw "daemon" 2>/dev/null; then
+    if psql -U postgres -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw "daemon" 2>/dev/null; then
         echo -e "${GREEN}✅ Database exists${NC}"
         
         # Check if schema needs to be updated (simplified check)
@@ -39,7 +39,7 @@ if command -v psql &> /dev/null; then
         if [ "$TABLE_COUNT" -lt "5" ]; then
             echo -e "${YELLOW}⚠️  Database schema may be incomplete. Running schema setup...${NC}"
             if [ -f "backend/db/social-schema.sql" ]; then
-                psql -U postgres -d daemon -f backend/db/social-schema.sql 2>/dev/null || echo "Schema already applied or errors occurred"
+                sudo -u postgres psql -d daemon -f backend/db/social-schema.sql 2>/dev/null || echo "Schema already applied or errors occurred"
                 echo -e "${GREEN}✅ Schema check complete${NC}"
             fi
         fi
@@ -48,13 +48,34 @@ if command -v psql &> /dev/null; then
         read -p "Run database setup script? (y/n) " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
-            ./scripts/setup-database.sh
+            if [ -f "scripts/setup-database.sh" ]; then
+                chmod +x scripts/setup-database.sh
+                ./scripts/setup-database.sh
+            else
+                echo -e "${RED}❌ Database setup script not found${NC}"
+            fi
         else
             echo -e "${YELLOW}⚠️  Skipping database setup. Node will run with limited functionality.${NC}"
         fi
     fi
 else
-    echo -e "${YELLOW}⚠️  PostgreSQL not installed. Node will run without database.${NC}"
+    echo -e "${YELLOW}⚠️  PostgreSQL not installed.${NC}"
+    read -p "Install and setup PostgreSQL now? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        if [ -f "scripts/setup-database.sh" ]; then
+            chmod +x scripts/setup-database.sh
+            ./scripts/setup-database.sh
+        else
+            echo -e "${RED}❌ Database setup script not found${NC}"
+            echo -e "${YELLOW}   Install PostgreSQL manually:${NC}"
+            echo -e "   ${BLUE}sudo apt install -y postgresql postgresql-contrib${NC}"
+            echo -e "   ${BLUE}sudo systemctl start postgresql${NC}"
+            echo -e "   ${BLUE}./scripts/setup-database.sh${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠️  Skipping database setup. Node will run without database (limited functionality).${NC}"
+    fi
 fi
 echo ""
 
@@ -62,7 +83,7 @@ echo ""
 echo -e "${YELLOW}Step 3: Checking dependencies...${NC}"
 if [ -f "daemon-node/package.json" ]; then
     cd daemon-node
-    
+
     # Check if node_modules exists and is newer than package.json
     if [ ! -d "node_modules" ] || [ "package.json" -nt "node_modules" ]; then
         echo -e "${YELLOW}📦 Installing/updating dependencies...${NC}"
@@ -71,7 +92,7 @@ if [ -f "daemon-node/package.json" ]; then
     else
         echo -e "${GREEN}✅ Dependencies up to date${NC}"
     fi
-    
+
     # Check if build is needed
     if [ ! -d "dist" ] || [ "src" -nt "dist" ] || [ "package.json" -nt "dist" ]; then
         echo -e "${YELLOW}🔨 Building project...${NC}"
@@ -80,7 +101,7 @@ if [ -f "daemon-node/package.json" ]; then
     else
         echo -e "${GREEN}✅ Build up to date${NC}"
     fi
-    
+
     cd ..
 else
     echo -e "${RED}❌ daemon-node/package.json not found${NC}"
@@ -98,7 +119,7 @@ if command -v pm2 &> /dev/null; then
         pm2 restart daemon-node --update-env
         pm2 save
         echo -e "${GREEN}✅ Service restarted${NC}"
-        
+
         echo ""
         echo -e "${BLUE}Service status:${NC}"
         pm2 status daemon-node
@@ -112,7 +133,7 @@ elif systemctl is-active --quiet daemon-node 2>/dev/null; then
     echo -e "${BLUE}🔄 Restarting systemd service...${NC}"
     sudo systemctl restart daemon-node
     echo -e "${GREEN}✅ Service restarted${NC}"
-    
+
     echo ""
     echo -e "${BLUE}Service status:${NC}"
     sudo systemctl status daemon-node --no-pager -l

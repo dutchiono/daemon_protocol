@@ -4,8 +4,24 @@
  */
 
 // Polyfill Promise.withResolvers() for Node.js versions < 22
+// Polyfill for Promise.withResolvers (Node.js v22+ feature)
+// Type declaration to avoid TypeScript errors
+declare global {
+  interface PromiseConstructor {
+    withResolvers<T>(): {
+      promise: Promise<T>;
+      resolve: (value: T | PromiseLike<T>) => void;
+      reject: (reason?: any) => void;
+    };
+  }
+}
+
 if (!Promise.withResolvers) {
-  Promise.withResolvers = function<T>() {
+  (Promise as any).withResolvers = function<T>(): {
+    promise: Promise<T>;
+    resolve: (value: T | PromiseLike<T>) => void;
+    reject: (reason?: any) => void;
+  } {
     let resolve: (value: T | PromiseLike<T>) => void;
     let reject: (reason?: any) => void;
     const promise = new Promise<T>((res, rej) => {
