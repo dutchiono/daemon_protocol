@@ -4,6 +4,9 @@
  * @notice Unified node runner - runs Hub, PDS, and Gateway together
  */
 
+// Polyfill for Node.js < 22 compatibility (must be first import)
+import './polyfill.js';
+
 // Load .env file from root directory
 import * as dotenv from 'dotenv';
 import * as path from 'path';

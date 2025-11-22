@@ -3,6 +3,9 @@
  * @notice Runs Hub, PDS, and Gateway together in one process
  */
 
+// Polyfill for Node.js < 22 compatibility (must be first import)
+import './polyfill.js';
+
 // Ensure .env is loaded (in case this is imported directly)
 import * as dotenv from 'dotenv';
 import * as path from 'path';
