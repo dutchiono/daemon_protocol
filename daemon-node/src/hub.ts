@@ -13,6 +13,7 @@ import { uPnPNAT } from '@libp2p/upnp-nat';
 import { webSockets } from '@libp2p/websockets';
 import express from 'express';
 import { createLibp2p } from 'libp2p';
+import * as os from 'os';
 import { Database } from '../../social-network/hub/src/database.js';
 import { HubService } from '../../social-network/hub/src/hub-service.js';
 import { MessageValidator } from '../../social-network/hub/src/message-validator.js';
@@ -150,14 +151,46 @@ export async function startHub(config: HubConfig) {
     res.json({ peers: hubService.getPeers(), count: hubService.getPeers().length });
   });
 
+  // Get server hostname/IP for displaying client endpoints
+  const networkInterfaces = os.networkInterfaces();
+  let serverHost = 'localhost';
+  // Try to find a non-internal IPv4 address
+  for (const interfaceName of Object.keys(networkInterfaces)) {
+    const addresses = networkInterfaces[interfaceName];
+    if (addresses) {
+      for (const addr of addresses) {
+        if (addr.family === 'IPv4' && !addr.internal) {
+          serverHost = addr.address;
+          break;
+        }
+      }
+      if (serverHost !== 'localhost') break;
+    }
+  }
+  const hostname = os.hostname();
+  const serverUrl = `http://${serverHost}:${config.port}`;
+  const libp2pPort = config.port + 1000;
+  const libp2pWsUrl = `ws://${serverHost}:${libp2pPort}`;
+
   let serverStarted = false;
-  const server = app.listen(config.port, () => {
+  const server = app.listen(config.port, '0.0.0.0', () => {
     serverStarted = true;
     console.log(`✅ Hub running on port ${config.port}`);
     console.log(`   Node ID: ${hubService.getNodeId()}`);
+    console.log(`   Hostname: ${hostname}`);
+    console.log(`   Server IP: ${serverHost}`);
     console.log(`   DHT: Enabled`);
+    
+    console.log(`\n   📡 Client API Endpoints (HTTP):`);
+    console.log(`   ${serverUrl}/health`);
+    console.log(`   ${serverUrl}/api/v1/messages (POST)`);
+    console.log(`   ${serverUrl}/api/v1/messages/:hash`);
+    console.log(`   ${serverUrl}/api/v1/peers`);
+    
+    console.log(`\n   🌐 libp2p WebSocket Endpoint:`);
+    console.log(`   ${libp2pWsUrl}`);
 
-    console.log('   Addresses:');
+    console.log('\n   Addresses:');
     node.getMultiaddrs().forEach((ma) => {
       console.log(`   - ${ma.toString()}`);
     });

@@ -84,9 +84,36 @@ export async function startGateway(config: GatewayConfig) {
     }
   });
 
-  const server = app.listen(config.port, () => {
+  // Get server hostname/IP for displaying client endpoints
+  const os = await import('os');
+  const networkInterfaces = os.networkInterfaces();
+  let serverHost = 'localhost';
+  for (const interfaceName of Object.keys(networkInterfaces)) {
+    const addresses = networkInterfaces[interfaceName];
+    if (addresses) {
+      for (const addr of addresses) {
+        if (addr.family === 'IPv4' && !addr.internal) {
+          serverHost = addr.address;
+          break;
+        }
+      }
+      if (serverHost !== 'localhost') break;
+    }
+  }
+  const hostname = os.hostname();
+  const serverUrl = `http://${serverHost}:${config.port}`;
+
+  const server = app.listen(config.port, '0.0.0.0', () => {
     console.log(`✅ Gateway running on port ${config.port}`);
     console.log(`   Gateway ID: ${gatewayService.getGatewayId()}`);
+    console.log(`   Hostname: ${hostname}`);
+    console.log(`   Server IP: ${serverHost}`);
+    
+    console.log(`\n   📡 Client API Endpoints (REST API):`);
+    console.log(`   ${serverUrl}/health`);
+    console.log(`   ${serverUrl}/api/v1/feed?fid=<fid>&type=algorithmic&limit=50`);
+    console.log(`   ${serverUrl}/api/v1/posts (POST)`);
+    console.log(`   ${serverUrl}/api/v1/posts/:hash`);
   }).on('error', (error: any) => {
     if (error.code === 'EADDRINUSE') {
       console.error(`\n❌ ERROR: Port ${config.port} is already in use!`);

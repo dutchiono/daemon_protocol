@@ -61,12 +61,33 @@ export async function startAll(config: AllConfig) {
     }),
   ]);
 
+  // Get server hostname/IP for displaying client endpoints
+  const os = await import('os');
+  const networkInterfaces = os.networkInterfaces();
+  let serverHost = 'localhost';
+  for (const interfaceName of Object.keys(networkInterfaces)) {
+    const addresses = networkInterfaces[interfaceName];
+    if (addresses) {
+      for (const addr of addresses) {
+        if (addr.family === 'IPv4' && !addr.internal) {
+          serverHost = addr.address;
+          break;
+        }
+      }
+      if (serverHost !== 'localhost') break;
+    }
+  }
+  const hostname = os.hostname();
+
   console.log('\n========================================');
   console.log('✅ All nodes started successfully!');
   console.log('========================================');
-  console.log('Hub:    http://localhost:4001');
-  console.log('PDS:    http://localhost:4002');
-  console.log('Gateway: http://localhost:4003');
+  console.log(`Server: ${hostname} (${serverHost})`);
+  console.log('\n📍 Client Endpoints:');
+  console.log(`   Hub HTTP API:     http://${serverHost}:4001`);
+  console.log(`   Hub libp2p WS:    ws://${serverHost}:5001`);
+  console.log(`   PDS AT Protocol:  http://${serverHost}:4002`);
+  console.log(`   Gateway REST API: http://${serverHost}:4003`);
   console.log('\nPress Ctrl+C to stop all nodes\n');
 
   // Graceful shutdown

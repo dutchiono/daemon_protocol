@@ -86,9 +86,37 @@ export async function startPDS(config: PDSConfig) {
     }
   });
 
-  const server = app.listen(config.port, () => {
+  // Get server hostname/IP for displaying client endpoints
+  const os = await import('os');
+  const networkInterfaces = os.networkInterfaces();
+  let serverHost = 'localhost';
+  for (const interfaceName of Object.keys(networkInterfaces)) {
+    const addresses = networkInterfaces[interfaceName];
+    if (addresses) {
+      for (const addr of addresses) {
+        if (addr.family === 'IPv4' && !addr.internal) {
+          serverHost = addr.address;
+          break;
+        }
+      }
+      if (serverHost !== 'localhost') break;
+    }
+  }
+  const hostname = os.hostname();
+  const serverUrl = `http://${serverHost}:${config.port}`;
+
+  const server = app.listen(config.port, '0.0.0.0', () => {
     console.log(`✅ PDS running on port ${config.port}`);
     console.log(`   PDS ID: ${pdsService.getPdsId()}`);
+    console.log(`   Hostname: ${hostname}`);
+    console.log(`   Server IP: ${serverHost}`);
+    
+    console.log(`\n   📡 Client API Endpoints (AT Protocol):`);
+    console.log(`   ${serverUrl}/health`);
+    console.log(`   ${serverUrl}/xrpc/com.atproto.server.describeServer`);
+    console.log(`   ${serverUrl}/xrpc/com.atproto.server.createAccount`);
+    console.log(`   ${serverUrl}/xrpc/com.atproto.repo.createRecord`);
+    console.log(`   ${serverUrl}/xrpc/com.atproto.repo.listRecords`);
   }).on('error', (error: any) => {
     if (error.code === 'EADDRINUSE') {
       console.error(`\n❌ ERROR: Port ${config.port} is already in use!`);
