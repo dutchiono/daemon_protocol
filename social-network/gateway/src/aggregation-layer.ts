@@ -280,6 +280,9 @@ export class AggregationLayer {
       website?: string;
     }
   ): Promise<Profile> {
+    if (!this.config.databaseUrl || !this.config.databaseUrl.trim() || !this.db) {
+      throw new Error('Database not configured');
+    }
     // Build update query dynamically
     const updateFields: string[] = [];
     const values: any[] = [];
