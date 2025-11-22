@@ -19,8 +19,17 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
 echo -e "${YELLOW}Step 1: Pulling latest changes...${NC}"
-git pull
-if [ $? -eq 0 ]; then
+
+# Discard any local changes and pull fresh code
+# This ensures we always get the latest version from remote
+if [ -n "$(git status --porcelain)" ]; then
+    echo -e "${YELLOW}⚠️  Local changes detected. Discarding and pulling fresh code...${NC}"
+    git reset --hard HEAD
+    git clean -fd
+fi
+
+# Pull latest changes (will overwrite everything)
+if git pull; then
     echo -e "${GREEN}✅ Code updated${NC}"
 else
     echo -e "${RED}❌ Git pull failed${NC}"
@@ -33,7 +42,7 @@ echo -e "${YELLOW}Step 2: Checking database setup...${NC}"
 if command -v psql &> /dev/null; then
     if psql -U postgres -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw "daemon" 2>/dev/null; then
         echo -e "${GREEN}✅ Database exists${NC}"
-        
+
         # Check if schema needs to be updated (simplified check)
         TABLE_COUNT=$(psql -U postgres -d daemon -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';" 2>/dev/null || echo "0")
         if [ "$TABLE_COUNT" -lt "5" ]; then

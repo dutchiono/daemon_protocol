@@ -31,3 +31,6 @@ if (!(Promise as any).withResolvers) {
   };
 }
 
+// Export empty to make this a module (required for declare global)
+export {};
+
