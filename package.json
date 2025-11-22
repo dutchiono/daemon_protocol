@@ -11,10 +11,15 @@
     "social-network/gateway"
   ],
   "scripts": {
+    "install:all": "npm install",
+    "install:pds": "npm install cors --workspace=social-network/pds",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest --coverage",
     "build": "npm run build --workspaces",
+    "build:pds": "npm run build --workspace=social-network/pds",
+    "build:gateway": "npm run build --workspace=social-network/gateway",
+    "build:client": "npm run build --workspace=daemon-client",
     "start:node": "cd daemon-node && npm start all",
     "start:client": "cd daemon-client && npm run electron:dev"
   },
