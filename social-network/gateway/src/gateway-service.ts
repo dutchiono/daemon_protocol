@@ -76,6 +76,20 @@ export class GatewayService {
     return await this.aggregationLayer.getProfile(fid);
   }
 
+  async updateProfile(
+    fid: number,
+    updates: {
+      username?: string;
+      displayName?: string;
+      bio?: string;
+      avatar?: string;
+      banner?: string;
+      website?: string;
+    }
+  ): Promise<Profile> {
+    return await this.aggregationLayer.updateProfile(fid, updates);
+  }
+
   async follow(followerFid: number, followingFid: number): Promise<{ success: boolean }> {
     await this.aggregationLayer.createFollow(followerFid, followingFid);
     return { success: true };

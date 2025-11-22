@@ -1,17 +1,24 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useWallet } from '../wallet/WalletProvider';
 import { getProfile } from '../api/client';
 import Post from '../components/Post';
 import './Profile.css';
 
 export default function Profile() {
-  const { fid } = useParams<{ fid: string }>();
-  const profileFid = fid ? parseInt(fid) : null;
+  const { fid: urlFid } = useParams<{ fid: string }>();
+  const { did } = useWallet();
+  const navigate = useNavigate();
 
-  const { data: profile, isLoading: profileLoading } = useQuery({
+  // Use URL fid if provided, otherwise use current user's did
+  const profileFid = urlFid ? parseInt(urlFid) : (did || null);
+  const isOwnProfile = !urlFid && did !== null;
+
+  const { data: profile, isLoading: profileLoading, error: profileError } = useQuery({
     queryKey: ['profile', profileFid],
     queryFn: () => getProfile(profileFid!),
-    enabled: profileFid !== null
+    enabled: profileFid !== null,
+    retry: false
   });
 
   // TODO: Get user's posts
@@ -28,7 +35,23 @@ export default function Profile() {
     return <div className="page-loading">Loading profile...</div>;
   }
 
-  if (!profile) {
+  if (profileError || !profile) {
+    if (isOwnProfile) {
+      return (
+        <div className="profile-page">
+          <div className="page-error" style={{ padding: '2rem', textAlign: 'center' }}>
+            <h2>Profile Not Set Up</h2>
+            <p>You haven't created your profile yet. Go to Settings to set up your profile.</p>
+            <button
+              onClick={() => navigate('/settings')}
+              style={{ marginTop: '1rem', padding: '0.75rem 1.5rem', cursor: 'pointer' }}
+            >
+              Go to Settings
+            </button>
+          </div>
+        </div>
+      );
+    }
     return <div className="page-error">Profile not found</div>;
   }
 
@@ -40,13 +63,31 @@ export default function Profile() {
         )}
         <div className="profile-info">
           <div className="profile-avatar-section">
-            {profile.avatar && (
+            {profile.avatar ? (
               <img src={profile.avatar} alt="Avatar" className="profile-avatar" />
+            ) : (
+              <div className="profile-avatar-placeholder">👤</div>
             )}
           </div>
           <div className="profile-details">
-            <h2>{profile.displayName || `@${profile.username || fid}`}</h2>
-            {profile.bio && <p className="profile-bio">{profile.bio}</p>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <h2>{profile.displayName || `@${profile.username || profileFid}`}</h2>
+              {isOwnProfile && (
+                <button
+                  onClick={() => navigate('/settings')}
+                  style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', cursor: 'pointer' }}
+                >
+                  Edit Profile
+                </button>
+              )}
+            </div>
+            {profile.bio ? (
+              <p className="profile-bio">{profile.bio}</p>
+            ) : isOwnProfile ? (
+              <p className="profile-bio" style={{ color: '#888', fontStyle: 'italic' }}>
+                No bio yet. Add one in Settings.
+              </p>
+            ) : null}
             {profile.website && (
               <a href={profile.website} target="_blank" rel="noopener noreferrer" className="profile-website">
                 {profile.website}

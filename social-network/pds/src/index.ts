@@ -47,9 +47,17 @@ function setupAPI(app: express.Application, pdsService: PDSService) {
   // Create account
   app.post('/xrpc/com.atproto.server.createAccount', async (req, res) => {
     try {
-      const { handle, email, password, inviteCode } = req.body;
-      const result = await pdsService.createAccount(handle, email, password, inviteCode);
-      res.json(result);
+      const { handle, email, password, inviteCode, walletAddress } = req.body;
+
+      // If walletAddress is provided, use wallet-based signup
+      if (walletAddress) {
+        const result = await pdsService.createAccountWithWallet(walletAddress, handle);
+        res.json(result);
+      } else {
+        // Traditional email/password signup
+        const result = await pdsService.createAccount(handle, email, password, inviteCode);
+        res.json(result);
+      }
     } catch (error) {
       res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }

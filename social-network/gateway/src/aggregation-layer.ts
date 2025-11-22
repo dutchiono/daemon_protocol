@@ -258,6 +258,114 @@ export class AggregationLayer {
     return profile;
   }
 
+  async updateProfile(
+    fid: number,
+    updates: {
+      username?: string;
+      displayName?: string;
+      bio?: string;
+      avatar?: string;
+      banner?: string;
+      website?: string;
+    }
+  ): Promise<Profile> {
+    // Build update query dynamically
+    const updateFields: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (updates.username !== undefined) {
+      updateFields.push(`username = $${paramIndex++}`);
+      values.push(updates.username);
+    }
+    if (updates.displayName !== undefined) {
+      updateFields.push(`display_name = $${paramIndex++}`);
+      values.push(updates.displayName);
+    }
+    if (updates.bio !== undefined) {
+      updateFields.push(`bio = $${paramIndex++}`);
+      values.push(updates.bio);
+    }
+    if (updates.avatar !== undefined) {
+      updateFields.push(`avatar_cid = $${paramIndex++}`);
+      values.push(updates.avatar);
+    }
+    if (updates.banner !== undefined) {
+      updateFields.push(`banner_cid = $${paramIndex++}`);
+      values.push(updates.banner);
+    }
+    if (updates.website !== undefined) {
+      updateFields.push(`website = $${paramIndex++}`);
+      values.push(updates.website);
+    }
+
+    if (updateFields.length === 0) {
+      // No updates, just return existing profile
+      const existing = await this.getProfile(fid);
+      if (!existing) {
+        throw new Error('Profile not found');
+      }
+      return existing;
+    }
+
+    // Add updated_at (doesn't need a parameter)
+    updateFields.push(`updated_at = NOW()`);
+
+    // Add fid for WHERE clause
+    values.push(fid);
+    const whereParamIndex = paramIndex;
+
+    const query = `
+      UPDATE profiles
+      SET ${updateFields.join(', ')}
+      WHERE fid = $${whereParamIndex}
+      RETURNING *
+    `;
+
+    const result = await this.db.query(query, values);
+
+    if (result.rows.length === 0) {
+      // Profile doesn't exist, create it
+      const insertQuery = `
+        INSERT INTO profiles (fid, username, display_name, bio, avatar_cid, banner_cid, website, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+        RETURNING *
+      `;
+      const insertResult = await this.db.query(insertQuery, [
+        fid,
+        updates.username || null,
+        updates.displayName || null,
+        updates.bio || null,
+        updates.avatar || null,
+        updates.banner || null,
+        updates.website || null
+      ]);
+      return this.mapRowToProfile(insertResult.rows[0], fid);
+    }
+
+    const row = result.rows[0];
+    const profile = this.mapRowToProfile(row, fid);
+
+    // Invalidate cache
+    if (this.redis) {
+      await this.redis.del(`profile:${fid}`);
+    }
+
+    return profile;
+  }
+
+  private mapRowToProfile(row: any, fid: number): Profile {
+    return {
+      fid,
+      username: row.username,
+      displayName: row.display_name,
+      bio: row.bio,
+      avatar: row.avatar_cid,
+      banner: row.banner_cid,
+      verified: row.verified
+    };
+  }
+
   async createFollow(followerFid: number, followingFid: number): Promise<void> {
     // Create follow on user's PDS
     const userPds = await this.getUserPDS(followerFid);

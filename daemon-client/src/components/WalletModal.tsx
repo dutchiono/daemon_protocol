@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useWallet } from '../wallet/WalletProvider';
+import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
+import { getProfile } from '../api/client';
 import './WalletModal.css';
 
 interface WalletModalProps {
@@ -15,6 +17,18 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
   const [fidJustRegistered, setFidJustRegistered] = useState(false);
 
   const PDS_URL = import.meta.env.VITE_PDS_URL || 'http://50.21.187.69:4002';
+  const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || 'http://localhost:4003';
+
+  // Check if user has a profile/username
+  const { data: existingProfile, isLoading: checkingProfile } = useQuery({
+    queryKey: ['profile', did],
+    queryFn: () => getProfile(did!),
+    enabled: !!did && isOpen,
+    retry: false
+  });
+
+  const hasProfile = !!existingProfile && existingProfile.username && existingProfile.username !== `fid-${did}`;
+  const needsUsername = did && !hasProfile && !checkingProfile;
 
   // Reset username input when modal opens or when did changes
   useEffect(() => {
@@ -80,7 +94,7 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
             <>
               <p>Your wallet is connected, but you don't have a Daemon ID yet.</p>
               <p className="wallet-address">Address: {address?.slice(0, 6)}...{address?.slice(-4)}</p>
-              {!fidJustRegistered && !did ? (
+              {!fidJustRegistered ? (
                 <>
                   <button
                     onClick={handleRegisterFID}
@@ -94,23 +108,31 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
               ) : (
                 <>
                   <p className="wallet-modal-success">✅ Daemon ID registered! Now choose your username:</p>
-                  <input
-                    type="text"
-                    placeholder="Enter username (e.g., alice, bob123)"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="wallet-modal-input"
-                    disabled={isCreatingAccount}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && username.trim() && !isCreatingAccount) {
-                        handleCreateAccount();
-                      }
-                    }}
-                  />
+                  <div style={{ marginTop: '1rem', width: '100%' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                      Username
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter username (e.g., alice, bob123)"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className="wallet-modal-input"
+                      disabled={isCreatingAccount}
+                      style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && username.trim() && !isCreatingAccount) {
+                          handleCreateAccount();
+                        }
+                      }}
+                      autoFocus
+                    />
+                  </div>
                   <button
                     onClick={handleCreateAccount}
                     className="connect-wallet-btn"
                     disabled={!username.trim() || isCreatingAccount}
+                    style={{ marginTop: '1rem', width: '100%' }}
                   >
                     {isCreatingAccount ? 'Creating Account...' : 'Create Account'}
                   </button>
@@ -118,11 +140,48 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
                 </>
               )}
             </>
+          ) : needsUsername ? (
+            <>
+              <p className="wallet-modal-success">✅ Daemon ID: {did}</p>
+              <p>You need to set a username to complete your profile.</p>
+              <div style={{ marginTop: '1rem', width: '100%' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                  Choose Your Username
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter username (e.g., alice, bob123)"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="wallet-modal-input"
+                  disabled={isCreatingAccount}
+                  style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && username.trim() && !isCreatingAccount) {
+                      handleCreateAccount();
+                    }
+                  }}
+                  autoFocus
+                />
+              </div>
+              <button
+                onClick={handleCreateAccount}
+                className="connect-wallet-btn"
+                disabled={!username.trim() || isCreatingAccount}
+                style={{ marginTop: '1rem', width: '100%' }}
+              >
+                {isCreatingAccount ? 'Setting Username...' : 'Set Username'}
+              </button>
+              <p className="wallet-modal-hint">This will create your Daemon Social account with your username</p>
+            </>
           ) : (
             <>
               <p>Wallet connected successfully!</p>
               <p className="wallet-address">Address: {address?.slice(0, 6)}...{address?.slice(-4)}</p>
               <p className="wallet-did">Daemon ID: {did}</p>
+              {existingProfile?.username && (
+                <p className="wallet-did">Username: @{existingProfile.username}</p>
+              )}
               <button onClick={onClose} className="connect-wallet-btn">
                 Done
               </button>

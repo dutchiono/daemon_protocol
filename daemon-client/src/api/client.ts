@@ -7,7 +7,7 @@ export async function getFeed(fid?: number, type: string = 'algorithmic', limit:
   try {
     const params: any = { type, limit };
     if (fid) params.fid = fid;
-    
+
     const response = await axios.get(`${API_URL}/api/v1/feed`, {
       params,
       timeout: 10000 // 10 second timeout
@@ -52,6 +52,23 @@ export async function getPost(hash: string) {
 
 export async function getProfile(fid: number) {
   const response = await axios.get(`${API_URL}/api/v1/profile/${fid}`);
+  return response.data;
+}
+
+export async function updateProfile(
+  fid: number,
+  updates: {
+    username?: string;
+    displayName?: string;
+    bio?: string;
+    avatar?: string;
+    banner?: string;
+    website?: string;
+  }
+) {
+  const response = await axios.put(`${API_URL}/api/v1/profile/${fid}`, updates, {
+    timeout: 10000
+  });
   return response.data;
 }
 

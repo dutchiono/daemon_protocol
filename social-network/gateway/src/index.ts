@@ -88,6 +88,26 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
     }
   });
 
+  protectedRoutes.put('/api/v1/profile/:fid', async (req, res) => {
+    try {
+      const fid = parseInt(req.params.fid);
+      const { username, displayName, bio, avatar, banner, website } = req.body;
+
+      const profile = await gatewayService.updateProfile(fid, {
+        username,
+        displayName,
+        bio,
+        avatar,
+        banner,
+        website
+      });
+
+      res.json(profile);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
   // Follow endpoints
   protectedRoutes.post('/api/v1/follow', async (req, res) => {
     try {
