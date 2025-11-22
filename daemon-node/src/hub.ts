@@ -102,7 +102,7 @@ export async function startHub(config: HubConfig) {
     rpcUrl: config.rpcUrl,
     chainId: 84532,
   });
-  const syncEngine = new SyncEngine(node, db, {
+  const syncEngine = new SyncEngine(node as any, db, {
     port: config.port,
     databaseUrl: config.databaseUrl,
     nodeId: `hub-${config.port}`,
@@ -111,7 +111,7 @@ export async function startHub(config: HubConfig) {
     rpcUrl: config.rpcUrl,
     chainId: 84532,
   });
-  const hubService = new HubService(node, db, validator, syncEngine, {
+  const hubService = new HubService(node as any, db, validator, syncEngine, {
     port: config.port,
     databaseUrl: config.databaseUrl,
     nodeId: `hub-${config.port}`,
