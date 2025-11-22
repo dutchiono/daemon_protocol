@@ -5,8 +5,7 @@
 
 import { ethers } from 'ethers';
 import IdRegistryABI from '../../../contracts/artifacts/contracts/IdRegistry.sol/IdRegistry.json' with { type: 'json' };
-import { logger } from '../../../daemon-node/src/logger.js';
-// Note: In dist, this resolves to ../../../src/logger.js
+import { logger } from './logger.js';
 import type { Config } from './config.js';
 import { Database } from './database.js';
 import { ReplicationEngine } from './replication-engine.js';

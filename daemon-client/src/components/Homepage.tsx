@@ -1,13 +1,11 @@
 import { useState } from 'react';
+import { useWallet } from '../wallet/WalletProvider';
 import Feed from './Feed';
 import Trending from './Trending';
 import './Homepage.css';
 
-interface HomepageProps {
-  fid: number | null;
-}
-
-export default function Homepage({ fid }: HomepageProps) {
+export default function Homepage() {
+  const { did } = useWallet();
   const [activeTab, setActiveTab] = useState<'feed' | 'trending'>('feed');
 
   return (
@@ -32,7 +30,7 @@ export default function Homepage({ fid }: HomepageProps) {
 
       <div className="homepage-content">
         {activeTab === 'feed' ? (
-          <Feed fid={fid} />
+          <Feed did={did} />
         ) : (
           <Trending />
         )}

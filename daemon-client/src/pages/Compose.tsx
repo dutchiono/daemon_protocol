@@ -5,7 +5,7 @@ import './Compose.css';
 
 export default function Compose() {
   const navigate = useNavigate();
-  const { fid } = useWallet();
+  const { did } = useWallet();
 
   return (
     <div className="compose-page">
@@ -13,7 +13,7 @@ export default function Compose() {
         <h2>Compose</h2>
       </div>
       <PostComposer
-        fid={fid}
+        did={did}
         onPostCreated={() => navigate('/')}
         onCancel={() => navigate('/')}
       />

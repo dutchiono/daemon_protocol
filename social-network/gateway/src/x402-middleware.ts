@@ -6,7 +6,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ethers } from 'ethers';
 import type { Config } from './config.js';
-import { logger } from '../../../daemon-node/src/logger.js';
+import { logger } from './logger.js';
 import StorageRegistryABI from '../../../contracts/artifacts/contracts/StorageRegistry.sol/StorageRegistry.json' with { type: 'json' };
 import IdRegistryABI from '../../../contracts/artifacts/contracts/IdRegistry.sol/IdRegistry.json' with { type: 'json' };
 

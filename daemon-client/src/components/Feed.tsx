@@ -34,7 +34,7 @@ export default function Feed({ did }: FeedProps) {
         <button onClick={() => refetch()} className="refresh-btn">Refresh</button>
       </div>
       <div className="feed-posts">
-        {data.posts.map((post) => (
+        {data.posts.map((post: any) => (
           <Post key={post.hash} post={post} />
         ))}
       </div>
