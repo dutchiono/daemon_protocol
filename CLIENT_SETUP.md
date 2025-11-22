@@ -19,6 +19,8 @@ Create `.env` file in `daemon-client/` directory:
 VITE_GATEWAY_URL=http://50.21.187.69:4003
 VITE_HUB_URL=http://50.21.187.69:4001
 VITE_PDS_URL=http://50.21.187.69:4002
+VITE_ID_REGISTRY_ADDRESS=0x4e37C9C45579611233A25B691201d50aE8E8175A
+VITE_BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
 ```
 
 ### 2. Configure social-client
@@ -29,6 +31,8 @@ Create `.env` file in `social-client/` directory:
 VITE_GATEWAY_URL=http://50.21.187.69:4003
 VITE_HUB_URL=http://50.21.187.69:4001
 VITE_PDS_URL=http://50.21.187.69:4002
+VITE_ID_REGISTRY_ADDRESS=0x4e37C9C45579611233A25B691201d50aE8E8175A
+VITE_BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
 ```
 
 ### 3. Restart Client

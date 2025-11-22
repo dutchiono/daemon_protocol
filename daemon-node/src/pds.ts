@@ -53,9 +53,17 @@ export async function startPDS(config: PDSConfig) {
 
   app.post('/xrpc/com.atproto.server.createAccount', async (req, res) => {
     try {
-      const { handle, email, password } = req.body;
-      const result = await pdsService.createAccount(handle, email, password);
-      res.json(result);
+      const { handle, email, password, walletAddress } = req.body;
+      
+      // If walletAddress provided, use wallet-based signup
+      if (walletAddress) {
+        const result = await pdsService.createAccountWithWallet(walletAddress, handle);
+        res.json(result);
+      } else {
+        // Traditional email/password signup
+        const result = await pdsService.createAccount(handle, email, password);
+        res.json(result);
+      }
     } catch (error) {
       res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
