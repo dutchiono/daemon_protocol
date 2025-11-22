@@ -13,7 +13,7 @@ export default function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="logo">
-          <span className="logo-icon">👹</span>
+          <img src="/daemon.jpg" alt="Daemon" className="logo-image" />
           <h1>Daemon</h1>
         </div>
       </div>

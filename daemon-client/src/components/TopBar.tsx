@@ -10,6 +10,7 @@ export default function TopBar() {
   return (
     <div className="topbar">
       <div className="topbar-left">
+        <img src="/daemon.jpg" alt="Daemon" className="topbar-logo-image" />
         <h1 className="topbar-logo">Daemon</h1>
       </div>
       <div className="topbar-right">

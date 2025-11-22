@@ -26,6 +26,13 @@
   font-size: 1.5rem;
 }
 
+.logo-image {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
 .logo h1 {
   font-size: 1.5rem;
   color: #fff;

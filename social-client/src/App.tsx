@@ -17,7 +17,10 @@ function App() {
       <WalletProvider onFidChange={setFid}>
         <div className="app">
           <header className="app-header">
-            <h1>Daemon Social</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <img src="/daemon.jpg" alt="Daemon" style={{ width: '40px', height: '40px', objectFit: 'contain', borderRadius: '4px' }} />
+              <h1>Daemon Social</h1>
+            </div>
             <nav>
               <button onClick={() => setCurrentView('feed')}>Feed</button>
               <button onClick={() => setCurrentView('compose')}>Compose</button>
