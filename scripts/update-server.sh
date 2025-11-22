@@ -60,21 +60,36 @@ if command -v psql &> /dev/null; then
     fi
 else
     echo -e "${YELLOW}⚠️  PostgreSQL not installed.${NC}"
-    read -p "Install and setup PostgreSQL now? (y/n) " -n 1 -r
+    echo ""
+    echo -e "${BLUE}📌 PostgreSQL is required for:${NC}"
+    echo -e "   • User feeds and follows"
+    echo -e "   • Full Gateway functionality"
+    echo -e "   • Persistent data storage"
+    echo ""
+    echo -e "${BLUE}Node will run without it, but with limited features (empty feeds).${NC}"
+    echo ""
+    read -p "Install and setup PostgreSQL now? (Y/n) " -n 1 -r
     echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
         if [ -f "scripts/setup-database.sh" ]; then
+            echo ""
             chmod +x scripts/setup-database.sh
             ./scripts/setup-database.sh
         else
             echo -e "${RED}❌ Database setup script not found${NC}"
-            echo -e "${YELLOW}   Install PostgreSQL manually:${NC}"
+            echo ""
+            echo -e "${YELLOW}To install PostgreSQL manually:${NC}"
+            echo -e "   ${BLUE}sudo apt update${NC}"
             echo -e "   ${BLUE}sudo apt install -y postgresql postgresql-contrib${NC}"
             echo -e "   ${BLUE}sudo systemctl start postgresql${NC}"
+            echo -e "   ${BLUE}sudo systemctl enable postgresql${NC}"
+            echo ""
+            echo -e "${YELLOW}Then run:${NC}"
             echo -e "   ${BLUE}./scripts/setup-database.sh${NC}"
         fi
     else
         echo -e "${YELLOW}⚠️  Skipping database setup. Node will run without database (limited functionality).${NC}"
+        echo -e "${YELLOW}   Run './scripts/setup-database.sh' later to set it up.${NC}"
     fi
 fi
 echo ""
