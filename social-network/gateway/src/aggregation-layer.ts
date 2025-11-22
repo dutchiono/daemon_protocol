@@ -19,7 +19,13 @@ export class AggregationLayer {
 
   constructor(config: Config) {
     this.config = config;
-    this.db = new Pool({ connectionString: config.databaseUrl });
+    // Only create database pool if databaseUrl is provided and not empty
+    if (config.databaseUrl && config.databaseUrl.trim() !== '') {
+      this.db = new Pool({ connectionString: config.databaseUrl });
+    } else {
+      // Create a dummy pool that will fail gracefully
+      this.db = null as any;
+    }
     this.hubEndpoints = config.hubEndpoints;
     this.pdsEndpoints = config.pdsEndpoints;
 
@@ -32,7 +38,7 @@ export class AggregationLayer {
 
   async getFollows(fid: number): Promise<number[]> {
     // Return empty array if no database configured
-    if (!this.config.databaseUrl || !this.db) {
+    if (!this.config.databaseUrl || !this.config.databaseUrl.trim() || !this.db) {
       return [];
     }
 
@@ -221,6 +227,11 @@ export class AggregationLayer {
   }
 
   async getProfile(fid: number): Promise<Profile | null> {
+    // Return null if no database configured
+    if (!this.config.databaseUrl || !this.config.databaseUrl.trim() || !this.db) {
+      return null;
+    }
+
     // Check cache
     if (this.redis) {
       const cached = await this.redis.get(`profile:${fid}`);
@@ -367,7 +378,7 @@ export class AggregationLayer {
   }
 
   async getUnreadNotificationCount(fid: number): Promise<number> {
-    if (!this.config.databaseUrl || !this.db) {
+    if (!this.config.databaseUrl || !this.config.databaseUrl.trim() || !this.db) {
       return 0;
     }
 
@@ -376,12 +387,12 @@ export class AggregationLayer {
       // Count new follows
       // For now, we'll count reactions on posts created by this user in the last 7 days
       const sevenDaysAgo = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
-      
+
       const result = await this.db.query(
         `SELECT COUNT(DISTINCT r.id) as count
          FROM reactions r
          INNER JOIN messages m ON r.target_hash = m.hash
-         WHERE m.fid = $1 
+         WHERE m.fid = $1
            AND r.fid != $1
            AND m.timestamp > $2
            AND r.active = true`,
@@ -394,7 +405,7 @@ export class AggregationLayer {
       const followResult = await this.db.query(
         `SELECT COUNT(*) as count
          FROM follows
-         WHERE following_fid = $1 
+         WHERE following_fid = $1
            AND active = true
            AND timestamp > $2`,
         [fid, sevenDaysAgo]
