@@ -3,8 +3,6 @@
  * @notice Polyfill for Promise.withResolvers() for Node.js < 22
  */
 
-// Polyfill Promise.withResolvers() for Node.js versions < 22
-// Polyfill for Promise.withResolvers (Node.js v22+ feature)
 // Type declaration to avoid TypeScript errors
 declare global {
   interface PromiseConstructor {
@@ -16,7 +14,8 @@ declare global {
   }
 }
 
-if (!Promise.withResolvers) {
+// Polyfill Promise.withResolvers() for Node.js versions < 22
+if (!(Promise as any).withResolvers) {
   (Promise as any).withResolvers = function<T>(): {
     promise: Promise<T>;
     resolve: (value: T | PromiseLike<T>) => void;
