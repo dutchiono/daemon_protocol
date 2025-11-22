@@ -5,13 +5,13 @@ set -e
 
 echo "🚀 Starting Deployment..."
 
-# 1. Install Node.js 20
-if ! command -v node &> /dev/null; then
-    echo "📦 Installing Node.js..."
-    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+# 1. Install Node.js 22 (Required for Promise.withResolvers)
+if ! command -v node &> /dev/null || [[ $(node -v) != v22* ]]; then
+    echo "📦 Installing Node.js 22..."
+    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
     sudo apt-get install -y nodejs
 else
-    echo "✅ Node.js is already installed"
+    echo "✅ Node.js 22 is already installed"
 fi
 
 # 2. Install PM2
