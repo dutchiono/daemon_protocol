@@ -1,0 +1,46 @@
+.feed {
+  display: flex;
+  flex-direction: column;
+}
+
+.feed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.feed-header h2 {
+  font-size: 1.5rem;
+  color: #fff;
+}
+
+.refresh-btn {
+  padding: 0.5rem 1rem;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.refresh-btn:hover {
+  background: #252525;
+}
+
+.feed-posts {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.feed-loading,
+.feed-error,
+.feed-empty {
+  padding: 3rem;
+  text-align: center;
+  color: #888;
+  font-size: 1.1rem;
+}
+

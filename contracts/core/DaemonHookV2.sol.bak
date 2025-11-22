@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+import "./DaemonHook.sol";
+
+/**
+ * @title DaemonHookV2
+ * @notice Example upgrade implementation to demonstrate upgradeability
+ * @dev This is a placeholder for future upgrades
+ */
+contract DaemonHookV2 is DaemonHook {
+    // New storage variables can be added here
+    // Note: Storage layout must be preserved when upgrading
+
+    // Example: New feature flag
+    bool public newFeatureEnabled;
+
+    /**
+     * @notice Initialize V2 (only called once during upgrade)
+     */
+    function initializeV2() public reinitializer(2) {
+        newFeatureEnabled = false;
+    }
+
+    /**
+     * @notice Enable new feature (example)
+     */
+    function enableNewFeature() external onlyOwner {
+        newFeatureEnabled = true;
+    }
+}
+

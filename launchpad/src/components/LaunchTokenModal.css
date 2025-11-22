@@ -1,0 +1,248 @@
+.launch-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+  color: #ffffff;
+}
+
+.launch-header {
+  padding: 2rem;
+  border-bottom: 1px solid #333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.launch-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(90deg, #00ff88, #00d4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.launch-content {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.launch-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.ai-chat-section {
+  border-right: 1px solid #333;
+  padding-right: 2rem;
+}
+
+.form-section {
+  padding-left: 2rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #fff;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.ai-badge {
+  display: inline-block;
+  background: linear-gradient(90deg, #00ff88, #00d4ff);
+  color: #000;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 0.75rem;
+  background: #0f0f0f;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.9rem;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #00ff88;
+}
+
+.form-group textarea {
+  resize: vertical;
+}
+
+.form-group small {
+  display: block;
+  margin-top: 0.5rem;
+  color: #888;
+  font-size: 0.8rem;
+}
+
+/* Image Upload */
+.image-drop-zone {
+  width: 100%;
+  min-height: 200px;
+  border: 2px dashed #333;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: #0f0f0f;
+  position: relative;
+  overflow: hidden;
+}
+
+.image-drop-zone.dragging {
+  border-color: #00ff88;
+  background: rgba(0, 255, 136, 0.1);
+}
+
+.image-drop-zone.has-image {
+  border-style: solid;
+  min-height: auto;
+}
+
+.image-drop-zone img {
+  width: 100%;
+  height: auto;
+  max-height: 300px;
+  object-fit: contain;
+}
+
+.drop-zone-content {
+  text-align: center;
+  padding: 2rem;
+}
+
+.drop-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.drop-zone-content p {
+  color: #888;
+  margin: 0;
+}
+
+.upload-spinner {
+  color: #00ff88;
+}
+
+/* Fee Slider */
+.slider-container {
+  margin: 1rem 0;
+}
+
+.fee-slider {
+  width: 100%;
+  height: 6px;
+  background: #333;
+  border-radius: 3px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.fee-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(90deg, #00ff88, #00d4ff);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.fee-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(90deg, #00ff88, #00d4ff);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+.slider-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  color: #888;
+  font-size: 0.8rem;
+}
+
+/* Form Actions */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #333;
+}
+
+.launch-button {
+  padding: 0.75rem 2rem;
+  background: linear-gradient(90deg, #00ff88, #00d4ff);
+  border: none;
+  border-radius: 8px;
+  color: #000;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.launch-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 255, 136, 0.3);
+}
+
+.launch-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 968px) {
+  .launch-container {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-chat-section {
+    border-right: none;
+    border-bottom: 1px solid #333;
+    padding-right: 0;
+    padding-bottom: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .form-section {
+    padding-left: 0;
+  }
+
+  .launch-content {
+    padding: 1rem;
+  }
+}
+

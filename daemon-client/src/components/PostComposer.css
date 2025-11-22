@@ -1,0 +1,91 @@
+.post-composer {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+.post-composer h2 {
+  margin-bottom: 1.5rem;
+  color: #fff;
+}
+
+.composer-textarea {
+  width: 100%;
+  padding: 1rem;
+  background: #0a0a0a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  color: #fff;
+  resize: vertical;
+  margin-bottom: 1rem;
+}
+
+.composer-textarea:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.composer-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.composer-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.cancel-button {
+  padding: 0.75rem 1.5rem;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.cancel-button:hover {
+  background: #252525;
+  border-color: #444;
+}
+
+.char-count {
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.post-button {
+  padding: 0.75rem 2rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.post-button:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.post-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #e0245e;
+  font-size: 0.9rem;
+}
+

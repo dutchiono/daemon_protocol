@@ -1,0 +1,54 @@
+.profile {
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-header {
+  position: relative;
+  margin-bottom: 4rem;
+}
+
+.profile-banner {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 8px 8px 0 0;
+}
+
+.profile-avatar-section {
+  position: absolute;
+  bottom: -50px;
+  left: 1rem;
+}
+
+.profile-avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 4px solid white;
+  object-fit: cover;
+}
+
+.profile-content {
+  padding: 1rem;
+}
+
+.profile-content h2 {
+  margin-bottom: 0.5rem;
+}
+
+.profile-bio {
+  color: #666;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.profile-content a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.profile-content a:hover {
+  text-decoration: underline;
+}
+

@@ -1,0 +1,193 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IContributionRegistry",
+  "sourceName": "contracts/IContributionRegistry.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newAddress",
+          "type": "address"
+        }
+      ],
+      "name": "BuilderRewardDistributorUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "contributor",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "contributionHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "prUrl",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "score",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "enum IContributionRegistry.ContributionType",
+          "name": "contributionType",
+          "type": "uint8"
+        }
+      ],
+      "name": "ContributionRecorded",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "contributionHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getContribution",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "bytes32",
+              "name": "contributionHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "string",
+              "name": "prUrl",
+              "type": "string"
+            },
+            {
+              "internalType": "uint256",
+              "name": "score",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "timestamp",
+              "type": "uint256"
+            },
+            {
+              "internalType": "enum IContributionRegistry.ContributionType",
+              "name": "contributionType",
+              "type": "uint8"
+            }
+          ],
+          "internalType": "struct IContributionRegistry.Contribution",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "contributor",
+          "type": "address"
+        }
+      ],
+      "name": "getContributorInfo",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "totalScore",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "lastContributionTimestamp",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "contributionCount",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "contributor",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "contributionHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "string",
+          "name": "prUrl",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "score",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        },
+        {
+          "internalType": "enum IContributionRegistry.ContributionType",
+          "name": "contributionType",
+          "type": "uint8"
+        }
+      ],
+      "name": "recordContribution",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_builderRewardDistributor",
+          "type": "address"
+        }
+      ],
+      "name": "setBuilderRewardDistributor",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

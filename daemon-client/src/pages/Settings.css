@@ -1,0 +1,141 @@
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  max-width: 600px;
+}
+
+.settings-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  margin-top: 1.5rem;
+}
+
+.settings-section {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  color: #fff;
+}
+
+.section-header h3 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.settings-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.settings-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #fff;
+}
+
+.wallet-address {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #888;
+}
+
+.fid-value {
+  font-family: monospace;
+  color: #007bff;
+}
+
+.connect-btn-small,
+.disconnect-btn-small {
+  padding: 0.4rem 0.8rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.connect-btn-small:hover {
+  background: #0056b3;
+}
+
+.disconnect-btn-small {
+  background: #f87171;
+}
+
+.disconnect-btn-small:hover {
+  background: #dc2626;
+}
+
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #333;
+  transition: 0.3s;
+  border-radius: 24px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.toggle input:checked + .toggle-slider {
+  background-color: #007bff;
+}
+
+.toggle input:checked + .toggle-slider:before {
+  transform: translateX(20px);
+}
+
+.theme-select,
+.settings-input {
+  padding: 0.5rem;
+  background: #0a0a0a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.theme-select:focus,
+.settings-input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+

@@ -1,0 +1,129 @@
+/**
+ * @title Daemon Social Network Personal Data Server (PDS)
+ * @notice Personal Data Server for user data hosting and account portability
+ */
+import express from 'express';
+import { PDSService } from './pds-service.js';
+import { ReplicationEngine } from './replication-engine.js';
+import { Database } from './database.js';
+const app = express();
+app.use(express.json());
+// Initialize PDS
+async function initializePDS(config) {
+    // Initialize database
+    const db = new Database(config.databaseUrl);
+    // Initialize services
+    const replicationEngine = new ReplicationEngine(db, config);
+    const pdsService = new PDSService(db, replicationEngine, config);
+    // Start PDS
+    await pdsService.start();
+    // Setup API endpoints
+    setupAPI(app, pdsService);
+    return { pdsService };
+}
+function setupAPI(app, pdsService) {
+    // Health check
+    app.get('/health', (req, res) => {
+        res.json({ status: 'ok', pdsId: pdsService.getPdsId() });
+    });
+    // User endpoints (AT Protocol compatible)
+    app.get('/xrpc/com.atproto.server.describeServer', (req, res) => {
+        res.json({
+            availableUserDomains: [pdsService.getPdsId()],
+            inviteCodeRequired: false
+        });
+    });
+    // Create account
+    app.post('/xrpc/com.atproto.server.createAccount', async (req, res) => {
+        try {
+            const { handle, email, password, inviteCode } = req.body;
+            const result = await pdsService.createAccount(handle, email, password, inviteCode);
+            res.json(result);
+        }
+        catch (error) {
+            res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+        }
+    });
+    // Get user profile
+    app.get('/xrpc/com.atproto.repo.getProfile', async (req, res) => {
+        try {
+            const { did } = req.query;
+            const profile = await pdsService.getProfile(did);
+            if (!profile) {
+                return res.status(404).json({ error: 'Profile not found' });
+            }
+            res.json(profile);
+        }
+        catch (error) {
+            res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+        }
+    });
+    // Create post
+    app.post('/xrpc/com.atproto.repo.createRecord', async (req, res) => {
+        try {
+            const { repo, collection, record } = req.body;
+            const result = await pdsService.createRecord(repo, collection, record);
+            res.json(result);
+        }
+        catch (error) {
+            res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+        }
+    });
+    // Get user's posts
+    app.get('/xrpc/com.atproto.repo.listRecords', async (req, res) => {
+        try {
+            const { repo, collection, limit = 50, cursor } = req.query;
+            const result = await pdsService.listRecords(repo, collection, parseInt(limit), cursor);
+            res.json(result);
+        }
+        catch (error) {
+            res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+        }
+    });
+    // Follow operation
+    app.post('/xrpc/com.atproto.repo.createRecord', async (req, res) => {
+        try {
+            const { repo, collection, record } = req.body;
+            if (collection === 'app.bsky.graph.follow') {
+                const result = await pdsService.createFollow(repo, record);
+                res.json(result);
+            }
+            else {
+                res.status(400).json({ error: 'Invalid collection' });
+            }
+        }
+        catch (error) {
+            res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+        }
+    });
+    // Account migration
+    app.post('/xrpc/com.atproto.server.migrateAccount', async (req, res) => {
+        try {
+            const { did, newPds } = req.body;
+            const result = await pdsService.migrateAccount(did, newPds);
+            res.json(result);
+        }
+        catch (error) {
+            res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+        }
+    });
+}
+// Start server
+const PORT = process.env.PORT || 4002;
+const config = {
+    port: parseInt(process.env.PDS_PORT || '4002'),
+    databaseUrl: process.env.DATABASE_URL || '',
+    pdsId: process.env.PDS_ID || '',
+    federationPeers: process.env.FEDERATION_PEERS ? process.env.FEDERATION_PEERS.split(',') : [],
+    ipfsGateway: process.env.IPFS_GATEWAY || 'https://ipfs.io/ipfs/',
+};
+initializePDS(config).then(({ pdsService }) => {
+    app.listen(PORT, () => {
+        console.log(`PDS server running on port ${PORT}`);
+        console.log(`PDS ID: ${pdsService.getPdsId()}`);
+    });
+}).catch((error) => {
+    console.error('Failed to initialize PDS:', error);
+    process.exit(1);
+});
+//# sourceMappingURL=index.js.map

@@ -1,0 +1,149 @@
+.social-contributor-dashboard {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.social-contributor-dashboard h1 {
+  margin-bottom: 2rem;
+}
+
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  padding: 1.5rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.stat-card h3 {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.stat-card p {
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+.dashboard-content {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 2rem;
+}
+
+.contributors-list h2,
+.contributions-list h2 {
+  margin-bottom: 1rem;
+}
+
+.contributors-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.contributor-card {
+  padding: 1rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.contributor-card:hover {
+  border-color: #007bff;
+  box-shadow: 0 2px 8px rgba(0,123,255,0.1);
+}
+
+.contributor-card.selected {
+  border-color: #007bff;
+  background: #f0f8ff;
+}
+
+.contributor-card h3 {
+  margin-bottom: 0.5rem;
+}
+
+.contributor-stats {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.contributor-changes {
+  color: #666;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.contributor-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.type-badge {
+  padding: 0.25rem 0.5rem;
+  background: #f0f0f0;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.contributions-table {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.contributions-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.contributions-table thead {
+  background: #f5f5f5;
+}
+
+.contributions-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.contributions-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.contributions-table tbody tr:hover {
+  background: #f9f9f9;
+}
+
+.contributions-table a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.contributions-table a:hover {
+  text-decoration: underline;
+}
+
+.dashboard-loading {
+  padding: 2rem;
+  text-align: center;
+  color: #666;
+}
+

@@ -1,0 +1,124 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IContributionRegistry",
+  "sourceName": "contracts/interfaces_IContributionRegistry.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "baseScore",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        }
+      ],
+      "name": "calculateDecayedScore",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "contributor",
+          "type": "address"
+        }
+      ],
+      "name": "getContributorHistory",
+      "outputs": [
+        {
+          "internalType": "bytes32[]",
+          "name": "hashes",
+          "type": "bytes32[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "scores",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "timestamps",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "contributor",
+          "type": "address"
+        }
+      ],
+      "name": "getContributorTotalScore",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "contributor",
+          "type": "address"
+        },
+        {
+          "internalType": "string",
+          "name": "prUrl",
+          "type": "string"
+        },
+        {
+          "internalType": "enum IContributionRegistry.ContributionType",
+          "name": "contributionType",
+          "type": "uint8"
+        }
+      ],
+      "name": "recordContribution",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "contributionHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bool",
+          "name": "verified",
+          "type": "bool"
+        }
+      ],
+      "name": "verifyContribution",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

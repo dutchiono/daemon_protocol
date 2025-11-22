@@ -1,0 +1,45 @@
+.notifications-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.notifications-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.notification-item {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 1rem;
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  transition: border-color 0.2s;
+}
+
+.notification-item:hover {
+  border-color: #444;
+}
+
+.notification-icon {
+  color: #007bff;
+  flex-shrink: 0;
+}
+
+.notification-content {
+  flex: 1;
+}
+
+.notification-content p {
+  color: #fff;
+  margin-bottom: 0.25rem;
+}
+
+.notification-time {
+  color: #888;
+  font-size: 0.85rem;
+}
+

@@ -1,0 +1,92 @@
+.channels-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.create-channel-btn {
+  padding: 0.5rem 1rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.create-channel-btn:hover {
+  background: #0056b3;
+}
+
+.channels-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.channel-card {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  transition: border-color 0.2s;
+}
+
+.channel-card:hover {
+  border-color: #444;
+}
+
+.channel-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #252525;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #007bff;
+  flex-shrink: 0;
+}
+
+.channel-info {
+  flex: 1;
+}
+
+.channel-info h3 {
+  color: #fff;
+  margin-bottom: 0.25rem;
+  font-size: 1.1rem;
+}
+
+.channel-info p {
+  color: #888;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.channel-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.join-btn {
+  padding: 0.5rem 1rem;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.join-btn:hover {
+  background: #252525;
+  border-color: #007bff;
+}
+

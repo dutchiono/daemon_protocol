@@ -1,0 +1,97 @@
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useWallet } from '../wallet/WalletProvider';
+import './Sidebar.css';
+
+export default function Sidebar() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { did } = useWallet();
+
+  const isActive = (path: string) => location.pathname === path;
+
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-header">
+        <div className="logo">
+          <span className="logo-icon">👹</span>
+          <h1>Daemon</h1>
+        </div>
+      </div>
+
+      <nav className="sidebar-nav">
+        <button
+          className={`nav-item ${isActive('/') ? 'active' : ''}`}
+          onClick={() => navigate('/')}
+        >
+          <span className="nav-icon">🏠</span>
+          <span className="nav-label">Home</span>
+        </button>
+
+        <button
+          className={`nav-item ${isActive('/feed') ? 'active' : ''}`}
+          onClick={() => navigate('/feed')}
+        >
+          <span className="nav-icon">📰</span>
+          <span className="nav-label">Feed</span>
+        </button>
+
+        <button
+          className={`nav-item ${isActive('/notifications') ? 'active' : ''}`}
+          onClick={() => navigate('/notifications')}
+        >
+          <span className="nav-icon">🔔</span>
+          <span className="nav-label">Notifications</span>
+          <span className="nav-badge">3</span>
+        </button>
+
+        <button
+          className={`nav-item ${isActive('/channels') ? 'active' : ''}`}
+          onClick={() => navigate('/channels')}
+        >
+          <span className="nav-icon">💬</span>
+          <span className="nav-label">Channels</span>
+        </button>
+
+        <button
+          className={`nav-item ${isActive('/compose') ? 'active' : ''}`}
+          onClick={() => navigate('/compose')}
+        >
+          <span className="nav-icon">✍️</span>
+          <span className="nav-label">Compose</span>
+        </button>
+
+        {did && (
+          <button
+            className={`nav-item ${isActive(`/profile/${did}`) ? 'active' : ''}`}
+            onClick={() => navigate(`/profile/${did}`)}
+          >
+            <span className="nav-icon">👤</span>
+            <span className="nav-label">Profile</span>
+          </button>
+        )}
+
+        <div className="nav-divider"></div>
+
+        <button
+          className={`nav-item ${isActive('/settings') ? 'active' : ''}`}
+          onClick={() => navigate('/settings')}
+        >
+          <span className="nav-icon">⚙️</span>
+          <span className="nav-label">Settings</span>
+        </button>
+      </nav>
+
+      {did && (
+        <div className="sidebar-footer">
+          <div className="user-info">
+            <div className="user-avatar">👤</div>
+            <div className="user-details">
+              <div className="user-name">DID: {did}</div>
+              <div className="user-handle">@user{did}</div>
+            </div>
+          </div>
+        </div>
+      )}
+    </aside>
+  );
+}

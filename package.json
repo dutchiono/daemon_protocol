@@ -1,0 +1,26 @@
+{
+  "name": "@daemon/social-network",
+  "version": "1.0.0",
+  "description": "Daemon Social Network - Complete Package",
+  "private": true,
+  "workspaces": [
+    "daemon-node",
+    "daemon-client",
+    "social-network/hub",
+    "social-network/pds",
+    "social-network/gateway"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest --coverage",
+    "build": "npm run build --workspaces",
+    "start:node": "cd daemon-node && npm start all",
+    "start:client": "cd daemon-client && npm run electron:dev"
+  },
+  "devDependencies": {
+    "vitest": "^1.1.0",
+    "@vitest/coverage-v8": "^1.1.0",
+    "typescript": "^5.3.3"
+  }
+}

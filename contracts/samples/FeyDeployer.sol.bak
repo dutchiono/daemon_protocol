@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+import {FeyToken} from "../FeyToken.sol";
+import {IFey} from "../interfaces/IFey.sol";
+
+/// @notice Fey Token Launcher
+library FeyDeployer {
+    function deployToken(IFey.TokenConfig memory tokenConfig, uint256 supply)
+        external
+        returns (address tokenAddress)
+    {
+        FeyToken token = new FeyToken{
+            salt: keccak256(abi.encode(tokenConfig.tokenAdmin, tokenConfig.salt))
+        }(
+            tokenConfig.name,
+            tokenConfig.symbol,
+            supply,
+            tokenConfig.tokenAdmin,
+            tokenConfig.image,
+            tokenConfig.metadata,
+            tokenConfig.context,
+            tokenConfig.originatingChainId
+        );
+        tokenAddress = address(token);
+    }
+}

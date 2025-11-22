@@ -1,0 +1,20 @@
+{
+  "name": "@daemon/contracts",
+  "version": "1.0.0",
+  "description": "Daemon Social Network Smart Contracts",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy:identity-registry:base-sepolia": "hardhat run scripts/deploy-identity-registry-base.ts --network base-sepolia",
+    "deploy:identity-registry:base-mainnet": "hardhat run scripts/deploy-identity-registry-base.ts --network base-mainnet",
+    "verify": "hardhat verify --network base-sepolia",
+    "test": "hardhat test"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.0",
+    "dotenv": "^16.3.1"
+  },
+  "dependencies": {
+    "ethers": "^6.9.0"
+  }
+}

@@ -1,0 +1,53 @@
+.topbar {
+  height: 60px;
+  background: #1a1a1a;
+  border-bottom: 1px solid #333;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.topbar-logo {
+  font-size: 1.5rem;
+  color: #fff;
+  margin: 0;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.wallet-address {
+  color: #888;
+  font-size: 0.9rem;
+  font-family: monospace;
+}
+
+.connect-btn,
+.disconnect-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid #333;
+  background: #1a1a1a;
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.connect-btn:hover {
+  background: #252525;
+  border-color: #007bff;
+}
+
+.disconnect-btn:hover {
+  background: #252525;
+  border-color: #f87171;
+}
+

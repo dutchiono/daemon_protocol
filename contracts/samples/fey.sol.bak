@@ -1,0 +1,428 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+import {IFeyHookV2} from "./hooks/interfaces/IFeyHookV2.sol";
+import {IFey} from "./interfaces/IFey.sol";
+import {IFeyExtension} from "./interfaces/IFeyExtension.sol";
+import {IFeyHook} from "./interfaces/IFeyHook.sol";
+import {IFeyLpLocker} from "./interfaces/IFeyLpLocker.sol";
+
+import {IFeyFeeLocker} from "./interfaces/IFeyFeeLocker.sol";
+import {IFeyMevModule} from "./interfaces/IFeyMevModule.sol";
+import {FeyDeployer} from "./utils/FeyDeployer.sol";
+import {OwnerAdmins} from "./utils/OwnerAdmins.sol";
+
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
+
+/// @notice Fey Token Launcher
+contract Fey is OwnerAdmins, ReentrancyGuard, IFey {
+    string constant version = "0";
+
+    uint256 public constant TOKEN_SUPPLY = 100_000_000_000e18; // 100b with 18 decimals
+    uint256 public constant BPS = 10_000;
+    uint256 public constant MAX_EXTENSIONS = 10;
+    uint16 public constant MAX_EXTENSION_BPS = 9000;
+
+    // immutable external dependencies
+    address public immutable WETH;
+
+    // base token that all deployed tokens will be paired with
+    address public baseToken;
+
+    // if true, the factory will not allow supplied token deployments
+    bool public deprecated;
+    bool public freezeFeeRecipient; // if true, the team fee recipient cannot be changed
+    bool public feeLockerFrozen; // if true, the fee locker cannot be changed
+
+    // receiver of the fees from the factory
+    address public teamFeeRecipient;
+    address public bootstrap;
+
+    // optional fee locker; when set, base token fees are routed to the locker under feeOwner=teamFeeRecipient
+    address public feeLocker;
+    mapping(address token => DeploymentInfo deploymentInfo) public deploymentInfoForToken;
+
+    // enabled factory modules
+    mapping(address hook => bool enabled) enabledHooks;
+    mapping(address locker => mapping(address hook => bool enabled)) public enabledLockers;
+    mapping(address extension => bool enabled) enabledExtensions;
+    mapping(address mevModule => bool enabled) enabledMevModules;
+
+    modifier onlyOwnerAdminOrBootstrap() {
+        if (msg.sender != owner() && msg.sender != bootstrap && !admins[msg.sender]) {
+            revert Unauthorized();
+        }
+        _;
+    }
+
+    constructor(address owner_, address _weth) OwnerAdmins(owner_) {
+        WETH = _weth;
+        deprecated = true;
+    }
+
+    function setBootstrap(address bootstrap_) external onlyOwner {
+        bootstrap = bootstrap_;
+        emit SetBootstrap(bootstrap_);
+    }
+
+    function setDeprecated(bool deprecated_) external onlyOwner {
+        deprecated = deprecated_;
+        emit SetDeprecated(deprecated_);
+    }
+
+    function setTeamFeeRecipient(address teamFeeRecipient_) external onlyOwnerAdminOrBootstrap {
+        if (freezeFeeRecipient) revert TeamFeeRecipientFrozen();
+        address oldTeamFeeRecipient = teamFeeRecipient;
+        teamFeeRecipient = teamFeeRecipient_;
+        emit SetTeamFeeRecipient(oldTeamFeeRecipient, teamFeeRecipient_);
+    }
+
+    function setFeeLocker(address feeLocker_) external onlyOwnerAdminOrBootstrap {
+        if (feeLockerFrozen) revert FeeLockerFrozen();
+        address oldFeeLocker = feeLocker;
+        feeLocker = feeLocker_;
+        emit SetFeeLocker(oldFeeLocker, feeLocker_);
+    }
+
+    function freezeTeamFeeRecipient() external onlyOwner {
+        freezeFeeRecipient = true;
+        emit SetTeamFeeRecipientFrozen();
+    }
+
+    function freezeFeeLocker() external onlyOwner {
+        feeLockerFrozen = true;
+        emit SetFeeLockerFrozen();
+    }
+
+    function setBaseToken(address baseToken_) external onlyOwnerAdminOrBootstrap {
+        if (baseToken != address(0)) revert BaseTokenAlreadySet();
+        if (baseToken_ == address(0)) revert InvalidBaseToken();
+        address oldBaseToken = baseToken;
+        baseToken = baseToken_;
+        emit SetBaseToken(oldBaseToken, baseToken_);
+    }
+
+    function setHookBaseToken(address hook) external onlyOwner {
+        if (!enabledHooks[hook]) revert HookNotEnabled();
+        if (baseToken == address(0)) revert BaseTokenNotSet();
+
+        IFeyHookV2(hook).setBaseToken(baseToken);
+    }
+
+    function claimWethFees() external nonReentrant {
+        if (teamFeeRecipient == address(0)) revert TeamFeeRecipientNotSet();
+
+        uint256 balance = IERC20(WETH).balanceOf(address(this));
+        SafeERC20.safeTransfer(IERC20(WETH), teamFeeRecipient, balance);
+        emit ClaimFees(WETH, teamFeeRecipient, balance);
+    }
+
+    function claimBaseTokenFees() external nonReentrant {
+        if (teamFeeRecipient == address(0)) revert TeamFeeRecipientNotSet();
+        if (baseToken == address(0)) revert BaseTokenNotSet();
+
+        uint256 balance = IERC20(baseToken).balanceOf(address(this));
+        if (balance == 0) {
+            emit ClaimFees(baseToken, teamFeeRecipient, 0);
+            return;
+        }
+
+        if (feeLocker != address(0)) {
+            IERC20(baseToken).approve(feeLocker, balance);
+            IFeyFeeLocker(feeLocker).storeFees(teamFeeRecipient, baseToken, balance);
+            emit ClaimFees(baseToken, feeLocker, balance);
+        } else {
+            SafeERC20.safeTransfer(IERC20(baseToken), teamFeeRecipient, balance);
+            emit ClaimFees(baseToken, teamFeeRecipient, balance);
+        }
+    }
+
+    function tokenDeploymentInfo(address token) external view returns (DeploymentInfo memory) {
+        return deploymentInfoForToken[token];
+    }
+
+    function setHook(address hook, bool enabled) external onlyOwnerAdminOrBootstrap {
+        // check that the hook supports the IFeyHook interface
+        if (!IFeyHook(hook).supportsInterface(type(IFeyHook).interfaceId)) {
+            revert InvalidHook();
+        }
+
+        enabledHooks[hook] = enabled;
+
+        emit SetHook(hook, enabled);
+    }
+
+    function setLocker(address locker, address hook, bool enabled)
+        external
+        onlyOwnerAdminOrBootstrap
+    {
+        // check that the locker supports the IFeyLpLocker interface
+        if (!IFeyLpLocker(locker).supportsInterface(type(IFeyLpLocker).interfaceId)) {
+            revert InvalidLocker();
+        }
+
+        enabledLockers[locker][hook] = enabled;
+
+        emit SetLocker(locker, hook, enabled);
+    }
+
+    function setMevModule(address mevModule, bool enabled) external onlyOwnerAdminOrBootstrap {
+        // check that the mev module supports the IFeyMevModule interface
+        if (!IFeyMevModule(mevModule).supportsInterface(type(IFeyMevModule).interfaceId)) {
+            revert InvalidMevModule();
+        }
+
+        enabledMevModules[mevModule] = enabled;
+
+        emit SetMevModule(mevModule, enabled);
+    }
+
+    // enable a extension contract for use, note the extension may implement its own access control
+    function setExtension(address extension, bool enabled) external onlyOwnerAdminOrBootstrap {
+        // check that the extension contract supports the IFeyExtension interface
+        if (!IFeyExtension(extension).supportsInterface(type(IFeyExtension).interfaceId)) {
+            revert InvalidExtension();
+        }
+
+        enabledExtensions[extension] = enabled;
+
+        emit SetExtension(extension, enabled);
+    }
+
+    // deploy a token on a non-originating chain with 0 supply,
+    // this can be used to bridge tokens between superchains.
+    function deployTokenZeroSupply(TokenConfig memory tokenConfig)
+        external
+        returns (address tokenAddress)
+    {
+        if (baseToken == address(0)) revert BaseTokenNotSet();
+        if (block.chainid == tokenConfig.originatingChainId) revert OnlyNonOriginatingChains();
+        if (deprecated) revert Deprecated();
+
+        tokenAddress = FeyDeployer.deployToken(tokenConfig, TOKEN_SUPPLY);
+    }
+
+    // Deploy a token and pool with the option to vault the token and buy an initial amount
+    function deployToken(DeploymentConfig memory deploymentConfig)
+        public
+        payable
+        nonReentrant
+        returns (address tokenAddress)
+    {
+        if (block.chainid != deploymentConfig.tokenConfig.originatingChainId) {
+            revert OnlyOriginatingChain();
+        }
+
+        bool isBootstrap = (baseToken == address(0));
+        if (isBootstrap) {
+            if (msg.sender != owner() && msg.sender != bootstrap) revert Unauthorized();
+
+            if (deploymentConfig.poolConfig.pairedToken != WETH) {
+                revert InvalidBaseToken();
+            }
+        } else {
+            if (baseToken == address(0)) revert BaseTokenNotSet();
+            if (deprecated) revert Deprecated();
+        }
+
+        // deploy the token
+        tokenAddress = FeyDeployer.deployToken(deploymentConfig.tokenConfig, TOKEN_SUPPLY);
+
+        // always override the paired token with the base token if it has already been deployed
+        IFey.PoolConfig memory _poolConfig = deploymentConfig.poolConfig;
+        if (baseToken != address(0)) {
+            // base token is paired with WETH; all others FEY
+            _poolConfig.pairedToken = baseToken;
+        }
+
+        // figure out the supply split
+        uint256 extensionsSupply = _prepareExtensions(deploymentConfig.extensionConfigs);
+        uint256 poolSupply = TOKEN_SUPPLY - extensionsSupply;
+
+        // configure the pool
+        PoolKey memory poolKey = _initializePool({
+            poolConfig: _poolConfig,
+            locker: deploymentConfig.lockerConfig.locker,
+            mevModule: deploymentConfig.mevModuleConfig.mevModule,
+            newToken: tokenAddress
+        });
+
+        // have locker mint liquidity and inform the hook of the position
+        _initializeLiquidity(
+            deploymentConfig.lockerConfig, _poolConfig, poolKey, poolSupply, tokenAddress
+        );
+
+        // trigger the extensions
+        _triggerExtensions(deploymentConfig, poolKey, tokenAddress);
+
+        // initialize the mev module
+        _initializeMevModule(deploymentConfig, poolKey);
+
+        // add the deployment info to the deployment info for token
+        address[] memory extensions = new address[](deploymentConfig.extensionConfigs.length);
+        for (uint256 i = 0; i < deploymentConfig.extensionConfigs.length; i++) {
+            extensions[i] = deploymentConfig.extensionConfigs[i].extension;
+        }
+
+        deploymentInfoForToken[tokenAddress] = DeploymentInfo({
+            locker: deploymentConfig.lockerConfig.locker,
+            token: tokenAddress,
+            hook: deploymentConfig.poolConfig.hook,
+            extensions: extensions
+        });
+
+        emit TokenCreated({
+            msgSender: msg.sender,
+            tokenAddress: tokenAddress,
+            tokenAdmin: deploymentConfig.tokenConfig.tokenAdmin,
+            tokenMetadata: deploymentConfig.tokenConfig.metadata,
+            tokenImage: deploymentConfig.tokenConfig.image,
+            tokenName: deploymentConfig.tokenConfig.name,
+            tokenSymbol: deploymentConfig.tokenConfig.symbol,
+            tokenContext: deploymentConfig.tokenConfig.context,
+            poolHook: _poolConfig.hook,
+            poolId: poolKey.toId(),
+            startingTick: _poolConfig.tickIfToken0IsFey,
+            pairedToken: _poolConfig.pairedToken,
+            locker: deploymentConfig.lockerConfig.locker,
+            mevModule: deploymentConfig.mevModuleConfig.mevModule,
+            extensionsSupply: extensionsSupply,
+            extensions: extensions
+        });
+    }
+
+    function _initializeMevModule(DeploymentConfig memory deploymentConfig, PoolKey memory poolKey)
+        internal
+    {
+        if (!enabledMevModules[deploymentConfig.mevModuleConfig.mevModule]) {
+            revert MevModuleNotEnabled();
+        }
+
+        // initialize the mev module
+        IFeyHook(deploymentConfig.poolConfig.hook).initializeMevModule(
+            poolKey, deploymentConfig.mevModuleConfig.mevModuleData
+        );
+    }
+
+    function _initializePool(
+        PoolConfig memory poolConfig,
+        address locker,
+        address mevModule,
+        address newToken
+    ) internal returns (PoolKey memory poolKey) {
+        // check that the pool hook is enabled
+        if (!enabledHooks[poolConfig.hook]) {
+            revert HookNotEnabled();
+        }
+
+        // call into the hook to initialize the pool
+        poolKey = IFeyHook(poolConfig.hook).initializePool(
+            newToken,
+            poolConfig.pairedToken,
+            poolConfig.tickIfToken0IsFey,
+            poolConfig.tickSpacing,
+            locker,
+            mevModule,
+            poolConfig.poolData
+        );
+    }
+
+    function _initializeLiquidity(
+        LockerConfig memory lockerConfig,
+        IFey.PoolConfig memory poolConfig,
+        PoolKey memory poolKey,
+        uint256 poolSupply,
+        address token
+    ) internal {
+        // check that the locker is enabled
+        if (!enabledLockers[lockerConfig.locker][poolConfig.hook]) {
+            revert LockerNotEnabled();
+        }
+
+        // approve the liquidity locker to take the pool's token supply
+        IERC20(token).approve(address(lockerConfig.locker), poolSupply);
+
+        // have the locker mint liquidity
+        IFeyLpLocker(lockerConfig.locker).placeLiquidity(
+            lockerConfig, poolConfig, poolKey, poolSupply, token
+        );
+    }
+
+    function _prepareExtensions(ExtensionConfig[] memory extensions)
+        internal
+        view
+        returns (uint256 extensionSupply)
+    {
+        if (extensions.length == 0) {
+            return 0;
+        }
+
+        // check for max number of extensions
+        if (extensions.length > MAX_EXTENSIONS) {
+            revert MaxExtensionsExceeded();
+        }
+
+        // determine total supply percentage earmarked for extensions
+        uint256 extensionSupplyPercentage = 0;
+        for (uint256 i = 0; i < extensions.length; i++) {
+            extensionSupplyPercentage += extensions[i].extensionBps;
+        }
+
+        // check that the extension supply percentage is less than the max extension bps
+        if (extensionSupplyPercentage > MAX_EXTENSION_BPS) {
+            revert MaxExtensionBpsExceeded();
+        }
+
+        // determine expected extension eth
+        uint256 expectedExtensionEth = 0;
+        for (uint256 i = 0; i < extensions.length; i++) {
+            expectedExtensionEth += extensions[i].msgValue;
+        }
+
+        // ensure the extension expected eth is equal to the msg.value
+        if (expectedExtensionEth != msg.value) {
+            revert ExtensionMsgValueMismatch();
+        }
+
+        // check that the extensions are enabled
+        for (uint256 i = 0; i < extensions.length; i++) {
+            if (!enabledExtensions[extensions[i].extension]) {
+                revert ExtensionNotEnabled();
+            }
+        }
+
+        // figure out the extension supply
+        extensionSupply = extensionSupplyPercentage * TOKEN_SUPPLY / BPS;
+    }
+
+    // send the tokens to the extension contract
+    function _triggerExtensions(
+        DeploymentConfig memory deploymentConfig,
+        PoolKey memory poolKey,
+        address token
+    ) internal {
+        // iterate over the extensions and trigger each one
+        for (uint256 i = 0; i < deploymentConfig.extensionConfigs.length; i++) {
+            // determine the supply for the extension
+            uint256 extensionSupply =
+                deploymentConfig.extensionConfigs[i].extensionBps * TOKEN_SUPPLY / BPS;
+
+            // approve the extension contract to spend the token
+            IERC20(token).approve(deploymentConfig.extensionConfigs[i].extension, extensionSupply);
+
+            // trigger the extension
+            IFeyExtension(deploymentConfig.extensionConfigs[i].extension).receiveTokens{
+                value: deploymentConfig.extensionConfigs[i].msgValue
+            }(deploymentConfig, poolKey, token, extensionSupply, i);
+
+            emit ExtensionTriggered(
+                deploymentConfig.extensionConfigs[i].extension,
+                extensionSupply,
+                deploymentConfig.extensionConfigs[i].msgValue
+            );
+        }
+    }
+}

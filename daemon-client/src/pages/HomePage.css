@@ -1,0 +1,40 @@
+.homepage {
+  display: flex;
+  flex-direction: column;
+}
+
+.homepage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.homepage-header h2 {
+  font-size: 1.5rem;
+  color: #fff;
+}
+
+.compose-fab {
+  padding: 0.75rem 1.5rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.compose-fab:hover {
+  background: #0056b3;
+}
+
+.compose-view {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 2rem;
+}
+
