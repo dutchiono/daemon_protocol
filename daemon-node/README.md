@@ -4,16 +4,30 @@
 
 ## Quick Start
 
+### 1. Setup Database (First Time Only)
+
+```bash
+# Run database setup script
+cd ..
+./scripts/setup-database.sh
+
+# Or see DATABASE_SETUP.md for manual setup
+```
+
+### 2. Install and Run Node
+
 ```bash
 cd daemon-node
 npm install
 npm run build
 
 # Run all nodes together
-npm start all -- --database "postgresql://user:pass@localhost/daemon"
+npm start all
 ```
 
 That's it! One command runs Hub + PDS + Gateway.
+
+**Note:** Database is optional. The node will work without it, but with limited functionality (empty feeds).
 
 ## What It Does
 

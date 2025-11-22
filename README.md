@@ -5,12 +5,23 @@
 ## Quick Start
 
 ### Run Node (One Command!)
+
+**First Time Setup:**
+```bash
+# Setup database (optional but recommended)
+./scripts/setup-database.sh
+# See DATABASE_SETUP.md for manual setup
+```
+
+**Run Node:**
 ```bash
 cd daemon-node
 npm install
 npm run build
-npm start all -- --database "postgresql://user:pass@localhost/daemon"
+npm start all
 ```
+
+**Note:** Database is optional. Node works without it but with limited features.
 
 ### Run Client
 ```bash
