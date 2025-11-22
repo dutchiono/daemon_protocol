@@ -54,6 +54,9 @@ export class GatewayService {
         }
         return { results: [] };
     }
+    async getUnreadNotificationCount(fid) {
+        return await this.aggregationLayer.getUnreadNotificationCount(fid);
+    }
     async rankPostsAlgorithmically(posts, fid) {
         // Simple algorithmic ranking based on:
         // - Recency (time decay)

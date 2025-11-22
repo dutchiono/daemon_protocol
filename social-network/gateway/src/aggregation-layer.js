@@ -252,6 +252,38 @@ export class AggregationLayer {
         // For now, return first PDS
         return this.pdsEndpoints[0] || null;
     }
+    async getUnreadNotificationCount(fid) {
+        if (!this.config.databaseUrl || !this.db) {
+            return 0;
+        }
+        try {
+            // Count reactions on user's posts (likes, reposts, replies)
+            // Count new follows
+            // For now, we'll count reactions on posts created by this user in the last 7 days
+            const sevenDaysAgo = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
+            const result = await this.db.query(`SELECT COUNT(DISTINCT r.hash) as count
+         FROM reactions r
+         INNER JOIN messages m ON r.target_hash = m.hash
+         WHERE m.fid = $1 
+           AND r.fid != $1
+           AND m.timestamp > $2`, [fid, sevenDaysAgo]);
+            const reactionCount = parseInt(result.rows[0]?.count || '0');
+            // Count new follows (people who followed you in last 7 days)
+            const followResult = await this.db.query(`SELECT COUNT(*) as count
+         FROM follows
+         WHERE following_fid = $1 
+           AND active = true
+           AND timestamp > $2`, [fid, sevenDaysAgo]);
+            const followCount = parseInt(followResult.rows[0]?.count || '0');
+            // For now, return sum of reactions and follows
+            // In the future, we could track read/unread status
+            return reactionCount + followCount;
+        }
+        catch (error) {
+            console.error('Error getting notification count:', error);
+            return 0;
+        }
+    }
     deduplicatePosts(posts) {
         const seen = new Set();
         return posts.filter(post => {
