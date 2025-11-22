@@ -378,12 +378,13 @@ export class AggregationLayer {
       const sevenDaysAgo = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
       
       const result = await this.db.query(
-        `SELECT COUNT(DISTINCT r.hash) as count
+        `SELECT COUNT(DISTINCT r.id) as count
          FROM reactions r
          INNER JOIN messages m ON r.target_hash = m.hash
          WHERE m.fid = $1 
            AND r.fid != $1
-           AND m.timestamp > $2`,
+           AND m.timestamp > $2
+           AND r.active = true`,
         [fid, sevenDaysAgo]
       );
 

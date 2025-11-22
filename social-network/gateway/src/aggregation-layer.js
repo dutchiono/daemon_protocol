@@ -261,12 +261,13 @@ export class AggregationLayer {
             // Count new follows
             // For now, we'll count reactions on posts created by this user in the last 7 days
             const sevenDaysAgo = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
-            const result = await this.db.query(`SELECT COUNT(DISTINCT r.hash) as count
+            const result = await this.db.query(`SELECT COUNT(DISTINCT r.id) as count
          FROM reactions r
          INNER JOIN messages m ON r.target_hash = m.hash
          WHERE m.fid = $1 
            AND r.fid != $1
-           AND m.timestamp > $2`, [fid, sevenDaysAgo]);
+           AND m.timestamp > $2
+           AND r.active = true`, [fid, sevenDaysAgo]);
             const reactionCount = parseInt(result.rows[0]?.count || '0');
             // Count new follows (people who followed you in last 7 days)
             const followResult = await this.db.query(`SELECT COUNT(*) as count
