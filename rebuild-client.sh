@@ -4,7 +4,22 @@ echo "🔨 Rebuilding Client with Environment Variables"
 echo "================================================"
 echo ""
 
-cd ~/daemon/daemon-client
+# Get the directory where the script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
+
+# Check if we're in root or need to go to daemon-client
+if [ -d "daemon-client" ]; then
+    CLIENT_DIR="daemon-client"
+elif [ -f "package.json" ] && [ -d "src" ]; then
+    CLIENT_DIR="."
+else
+    echo "❌ Cannot find daemon-client directory"
+    echo "   Run this from the daemon root directory"
+    exit 1
+fi
+
+cd "$CLIENT_DIR"
 
 # Check if .env exists
 if [ ! -f .env ]; then
