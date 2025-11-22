@@ -78,9 +78,20 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
   // Profile endpoints
   protectedRoutes.get('/api/v1/profile/:fid', async (req, res) => {
     try {
-      const profile = await gatewayService.getProfile(parseInt(req.params.fid));
+      const fid = parseInt(req.params.fid);
+      const profile = await gatewayService.getProfile(fid);
       if (!profile) {
-        return res.status(404).json({ error: 'Profile not found' });
+        // Return empty profile instead of 404 to make frontend handling easier
+        return res.json({
+          fid,
+          username: null,
+          displayName: null,
+          bio: null,
+          avatar: null,
+          banner: null,
+          website: null,
+          verified: false
+        });
       }
       res.json(profile);
     } catch (error) {

@@ -3,10 +3,12 @@
  * @notice Personal Data Server for user data hosting and account portability
  */
 import express from 'express';
+import cors from 'cors';
 import { PDSService } from './pds-service.js';
 import { ReplicationEngine } from './replication-engine.js';
 import { Database } from './database.js';
 const app = express();
+app.use(cors());
 app.use(express.json());
 // Initialize PDS
 async function initializePDS(config) {

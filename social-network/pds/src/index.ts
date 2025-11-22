@@ -4,12 +4,14 @@
  */
 
 import express from 'express';
+import cors from 'cors';
 import { PDSService } from './pds-service.js';
 import { ReplicationEngine } from './replication-engine.js';
 import { Database } from './database.js';
 import type { Config } from './config.js';
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 // Initialize PDS
