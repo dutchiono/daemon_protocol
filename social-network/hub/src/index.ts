@@ -6,7 +6,7 @@
 import express from 'express';
 import { createLibp2p } from 'libp2p';
 import { webSockets } from '@libp2p/websockets';
-import { noise } from '@libp2p/noise';
+import { noise } from '@chainsafe/libp2p-noise';
 import { mplex } from '@libp2p/mplex';
 import { kadDHT } from '@libp2p/kad-dht';
 import { bootstrap } from '@libp2p/bootstrap';
