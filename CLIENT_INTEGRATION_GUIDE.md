@@ -59,7 +59,7 @@ export async function createPost(fid: number, text: string, parentHash?: string)
 export async function getFeed(fid?: number, type: string = 'algorithmic', limit: number = 50) {
   const params: any = { type, limit };
   if (fid) params.fid = fid;
-  
+
   const response = await axios.get(`${GATEWAY_URL}/api/v1/feed`, { params });
   return response.data;
 }

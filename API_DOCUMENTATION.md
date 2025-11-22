@@ -2,7 +2,7 @@
 
 ## Server Information
 
-**Current Server:** `50.21.187.69`  
+**Current Server:** `50.21.187.69`
 **Hostname:** `ubuntu`
 
 ---
@@ -85,8 +85,8 @@ GET /api/v1/peers
 
 ### libp2p WebSocket Endpoint
 
-**WebSocket URL:** `ws://50.21.187.69:5001`  
-**Protocol:** libp2p WebSocket transport  
+**WebSocket URL:** `ws://50.21.187.69:5001`
+**Protocol:** libp2p WebSocket transport
 **Purpose:** Peer-to-peer communication, DHT queries
 
 ---

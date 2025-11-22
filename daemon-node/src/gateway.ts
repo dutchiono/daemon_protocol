@@ -108,7 +108,7 @@ export async function startGateway(config: GatewayConfig) {
     console.log(`   Gateway ID: ${gatewayService.getGatewayId()}`);
     console.log(`   Hostname: ${hostname}`);
     console.log(`   Server IP: ${serverHost}`);
-    
+
     console.log(`\n   📡 Client API Endpoints (REST API):`);
     console.log(`   ${serverUrl}/health`);
     console.log(`   ${serverUrl}/api/v1/feed?fid=<fid>&type=algorithmic&limit=50`);

@@ -180,13 +180,13 @@ export async function startHub(config: HubConfig) {
     console.log(`   Hostname: ${hostname}`);
     console.log(`   Server IP: ${serverHost}`);
     console.log(`   DHT: Enabled`);
-    
+
     console.log(`\n   📡 Client API Endpoints (HTTP):`);
     console.log(`   ${serverUrl}/health`);
     console.log(`   ${serverUrl}/api/v1/messages (POST)`);
     console.log(`   ${serverUrl}/api/v1/messages/:hash`);
     console.log(`   ${serverUrl}/api/v1/peers`);
-    
+
     console.log(`\n   🌐 libp2p WebSocket Endpoint:`);
     console.log(`   ${libp2pWsUrl}`);
 

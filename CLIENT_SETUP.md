@@ -63,10 +63,10 @@ The client needs a signup/signin flow that calls:
 
 ## What's Ready
 
-✅ Server nodes (Hub, PDS, Gateway)  
-✅ Username creation API endpoint  
-✅ Client API client code  
-⚠️ Client configuration (needs .env file)  
+✅ Server nodes (Hub, PDS, Gateway)
+✅ Username creation API endpoint
+✅ Client API client code
+⚠️ Client configuration (needs .env file)
 ❌ Client signup UI (needs to be built)
 
 ## Next Steps

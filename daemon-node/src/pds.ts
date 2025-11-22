@@ -110,7 +110,7 @@ export async function startPDS(config: PDSConfig) {
     console.log(`   PDS ID: ${pdsService.getPdsId()}`);
     console.log(`   Hostname: ${hostname}`);
     console.log(`   Server IP: ${serverHost}`);
-    
+
     console.log(`\n   📡 Client API Endpoints (AT Protocol):`);
     console.log(`   ${serverUrl}/health`);
     console.log(`   ${serverUrl}/xrpc/com.atproto.server.describeServer`);
