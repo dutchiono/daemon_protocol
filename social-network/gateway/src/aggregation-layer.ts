@@ -31,6 +31,11 @@ export class AggregationLayer {
   }
 
   async getFollows(fid: number): Promise<number[]> {
+    // Return empty array if no database configured
+    if (!this.config.databaseUrl || !this.db) {
+      return [];
+    }
+
     // Check cache first
     const cacheKey = `follows:${fid}`;
     if (this.redis) {
@@ -40,21 +45,27 @@ export class AggregationLayer {
       }
     }
 
-    // Query database
-    const result = await this.db.query(
-      `SELECT following_fid FROM follows
-       WHERE follower_fid = $1 AND active = true`,
-      [fid]
-    );
+    try {
+      // Query database
+      const result = await this.db.query(
+        `SELECT following_fid FROM follows
+         WHERE follower_fid = $1 AND active = true`,
+        [fid]
+      );
 
-    const follows = result.rows.map((row: any) => parseInt(row.following_fid));
+      const follows = result.rows.map((row: any) => parseInt(row.following_fid));
 
-    // Cache result
-    if (this.redis) {
-      await this.redis.setEx(cacheKey, 300, JSON.stringify(follows)); // 5 min cache
+      // Cache result
+      if (this.redis) {
+        await this.redis.setEx(cacheKey, 300, JSON.stringify(follows)); // 5 min cache
+      }
+
+      return follows;
+    } catch (error) {
+      console.error('Database error in getFollows:', error);
+      // Return empty array if database query fails
+      return [];
     }
-
-    return follows;
   }
 
   async getPostsFromUsers(
@@ -66,18 +77,45 @@ export class AggregationLayer {
     // Query from hubs
     const posts: Post[] = [];
 
+    // If no fids provided or empty, try to get all posts from hubs
+    if (!fids || fids.length === 0) {
+      // Try to get recent posts from all hubs
+      for (const hubEndpoint of this.hubEndpoints) {
+        try {
+          // Try to get messages - if hub doesn't support batch endpoint, return empty
+          const response = await fetch(
+            `${hubEndpoint}/api/v1/peers`,
+            { signal: AbortSignal.timeout(5000) }
+          );
+          if (response.ok) {
+            // Hub is reachable, but no batch endpoint - return empty for now
+            // TODO: Implement a way to get all posts from hub
+          }
+        } catch (error) {
+          console.error(`Failed to query hub ${hubEndpoint}:`, error);
+        }
+      }
+      return [];
+    }
+
     for (const hubEndpoint of this.hubEndpoints) {
       try {
         // Query hub for posts from these users
+        // Note: Hub might not have /api/v1/messages/batch endpoint
+        // Fall back to individual queries or return empty
         const response = await fetch(
-          `${hubEndpoint}/api/v1/messages/batch?fids=${fids.join(',')}&limit=${limit}`
+          `${hubEndpoint}/api/v1/messages/batch?fids=${fids.join(',')}&limit=${limit}`,
+          { signal: AbortSignal.timeout(5000) }
         );
         if (response.ok) {
           const data: any = await response.json();
-          posts.push(...data.messages);
+          if (data.messages) {
+            posts.push(...data.messages);
+          }
         }
       } catch (error) {
         console.error(`Failed to query hub ${hubEndpoint}:`, error);
+        // Continue to next hub or return empty
       }
     }
 

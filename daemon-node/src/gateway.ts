@@ -52,15 +52,26 @@ export async function startGateway(config: GatewayConfig) {
   app.get('/api/v1/feed', async (req, res) => {
     try {
       const { fid, type = 'algorithmic', limit = 50 } = req.query;
+      
+      // Allow feed without fid (will return empty feed)
+      const fidParam = fid ? parseInt(fid as string) : 0;
+      
+      if (fid && isNaN(fidParam)) {
+        return res.status(400).json({ error: 'Invalid fid parameter' });
+      }
+      
       const feed = await gatewayService.getFeed(
-        parseInt(fid as string),
+        fidParam,
         type as string,
-        parseInt(limit as string),
+        parseInt(limit as string) || 50,
         undefined
       );
       res.json(feed);
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+      console.error('Error getting feed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      // Return empty feed instead of error for better UX
+      res.json({ posts: [], error: errorMessage });
     }
   });
 

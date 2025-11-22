@@ -22,26 +22,38 @@ export class GatewayService {
     limit: number,
     cursor?: string
   ): Promise<Feed> {
-    // Get user's follows
-    const follows = await this.aggregationLayer.getFollows(fid);
+    try {
+      // If fid is 0 or not provided, return empty feed or general feed
+      if (!fid || fid === 0) {
+        // Return empty feed for now - could be extended to show general feed
+        return { posts: [], cursor: undefined };
+      }
 
-    // Get posts from followed users
-    const posts = await this.aggregationLayer.getPostsFromUsers(
-      follows,
-      type,
-      limit,
-      cursor
-    );
+      // Get user's follows
+      const follows = await this.aggregationLayer.getFollows(fid);
 
-    // Rank posts (algorithmic or chronological)
-    const rankedPosts = type === 'algorithmic'
-      ? await this.rankPostsAlgorithmically(posts, fid)
-      : posts.sort((a, b) => b.timestamp - a.timestamp);
+      // Get posts from followed users
+      const posts = await this.aggregationLayer.getPostsFromUsers(
+        follows,
+        type,
+        limit,
+        cursor
+      );
 
-    return {
-      posts: rankedPosts.slice(0, limit),
-      cursor: rankedPosts.length > limit ? rankedPosts[limit - 1].hash : undefined
-    };
+      // Rank posts (algorithmic or chronological)
+      const rankedPosts = type === 'algorithmic'
+        ? await this.rankPostsAlgorithmically(posts, fid)
+        : posts.sort((a, b) => b.timestamp - a.timestamp);
+
+      return {
+        posts: rankedPosts.slice(0, limit),
+        cursor: rankedPosts.length > limit ? rankedPosts[limit - 1].hash : undefined
+      };
+    } catch (error) {
+      console.error('Error in getFeed:', error);
+      // Return empty feed on error instead of throwing
+      return { posts: [], cursor: undefined };
+    }
   }
 
   async createPost(
