@@ -1,5 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useWallet } from '../wallet/WalletProvider';
+import { getUnreadNotificationCount } from '../api/client';
 import './Sidebar.css';
 
 export default function Sidebar() {
@@ -8,6 +10,14 @@ export default function Sidebar() {
   const { did } = useWallet();
 
   const isActive = (path: string) => location.pathname === path;
+
+  // Fetch unread notification count
+  const { data: notificationCount = 0 } = useQuery({
+    queryKey: ['notificationCount', did],
+    queryFn: () => getUnreadNotificationCount(did!),
+    enabled: !!did,
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
 
   return (
     <aside className="sidebar">
@@ -41,7 +51,9 @@ export default function Sidebar() {
         >
           <span className="nav-icon">🔔</span>
           <span className="nav-label">Notifications</span>
-          <span className="nav-badge">3</span>
+          {notificationCount > 0 && (
+            <span className="nav-badge">{notificationCount > 99 ? '99+' : notificationCount}</span>
+          )}
         </button>
 
         <button

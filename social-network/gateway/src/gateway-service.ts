@@ -117,6 +117,10 @@ export class GatewayService {
     return { results: [] };
   }
 
+  async getUnreadNotificationCount(fid: number): Promise<number> {
+    return await this.aggregationLayer.getUnreadNotificationCount(fid);
+  }
+
   private async rankPostsAlgorithmically(posts: Post[], fid: number): Promise<Post[]> {
     // Simple algorithmic ranking based on:
     // - Recency (time decay)

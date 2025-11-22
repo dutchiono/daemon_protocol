@@ -166,6 +166,20 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
     }
   });
 
+  // Notifications endpoint
+  protectedRoutes.get('/api/v1/notifications/count', async (req, res) => {
+    try {
+      const { fid } = req.query;
+      if (!fid) {
+        return res.status(400).json({ error: 'fid is required' });
+      }
+      const count = await gatewayService.getUnreadNotificationCount(parseInt(fid as string));
+      res.json({ count });
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
   // Mount protected routes
   app.use(protectedRoutes);
 }

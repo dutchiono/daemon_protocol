@@ -89,3 +89,18 @@ export async function repostPost(targetHash: string) {
   return response.data;
 }
 
+export async function getUnreadNotificationCount(fid: number) {
+  try {
+    const response = await axios.get(`${API_URL}/api/v1/notifications/count`, {
+      params: { fid },
+      timeout: 10000
+    });
+    return response.data.count || 0;
+  } catch (error: any) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
+      return 0;
+    }
+    return 0;
+  }
+}
+
