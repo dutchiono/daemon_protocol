@@ -89,6 +89,17 @@ export async function startPDS(config: PDSConfig) {
   const server = app.listen(config.port, () => {
     console.log(`✅ PDS running on port ${config.port}`);
     console.log(`   PDS ID: ${pdsService.getPdsId()}`);
+  }).on('error', (error: any) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`\n❌ ERROR: Port ${config.port} is already in use!`);
+      console.error(`   Another process is running on port ${config.port}`);
+      console.error(`   Kill the existing process first: lsof -ti:${config.port} | xargs kill -9`);
+      console.error(`   Or choose a different port.\n`);
+      process.exit(1);
+    } else {
+      console.error(`❌ ERROR starting PDS server:`, error);
+      throw error;
+    }
   });
 
   return {

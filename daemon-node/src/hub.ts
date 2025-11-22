@@ -161,6 +161,17 @@ export async function startHub(config: HubConfig) {
     if (config.bootstrapNodes && config.bootstrapNodes.length > 0) {
       console.log(`   Bootstrap: ${config.bootstrapNodes.length} nodes`);
     }
+  }).on('error', (error: any) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`❌ ERROR: Port ${config.port} is already in use.`);
+      console.error(`   Another process is running on port ${config.port}`);
+      console.error(`   Kill the existing process or use a different port.`);
+      console.error(`   Run: lsof -ti:${config.port} | xargs kill -9  (on Linux/Mac)`);
+      process.exit(1);
+    } else {
+      console.error(`❌ ERROR starting Hub server:`, error);
+      throw error;
+    }
   });
 
   // Log address updates (NAT traversal success)

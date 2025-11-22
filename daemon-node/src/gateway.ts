@@ -87,6 +87,17 @@ export async function startGateway(config: GatewayConfig) {
   const server = app.listen(config.port, () => {
     console.log(`✅ Gateway running on port ${config.port}`);
     console.log(`   Gateway ID: ${gatewayService.getGatewayId()}`);
+  }).on('error', (error: any) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`\n❌ ERROR: Port ${config.port} is already in use!`);
+      console.error(`   Another process is running on port ${config.port}`);
+      console.error(`   Kill the existing process first: lsof -ti:${config.port} | xargs kill -9`);
+      console.error(`   Or choose a different port.\n`);
+      process.exit(1);
+    } else {
+      console.error(`❌ ERROR starting Gateway server:`, error);
+      throw error;
+    }
   });
 
   return {
