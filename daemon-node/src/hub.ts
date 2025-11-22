@@ -42,7 +42,9 @@ export async function startHub(config: HubConfig) {
 
   const libp2pConfig: any = {
     addresses: {
-      listen: [`/ip4/0.0.0.0/tcp/${config.port}/ws`]
+      // Use a different port for libp2p WebSocket transport to avoid conflict with Express HTTP server
+      // Express HTTP uses config.port, libp2p uses config.port + 1000
+      listen: [`/ip4/0.0.0.0/tcp/${config.port + 1000}/ws`]
     },
     transports: [webSockets()],
     connectionEncryption: [noise()],
