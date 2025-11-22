@@ -41,13 +41,32 @@ npm run electron:dev
 
 ## Production Status
 
-**Ready for testing!** Works without blockchain.
+**✅ Ready for Beta Testing!**
 
-**For production:** Need Identity Registry contract on Optimism/Base.
+**Current Server:** `50.21.187.69` (ubuntu)
 
-See `PRODUCTION_CHECKLIST.md` for details.
+**Services Running:**
+- Hub HTTP API: `http://50.21.187.69:4001`
+- PDS AT Protocol: `http://50.21.187.69:4002`
+- Gateway REST API: `http://50.21.187.69:4003`
+- Hub WebSocket: `ws://50.21.187.69:5001`
+
+**Status:** Core features working. See `PRODUCTION_READY.md` for full status.
 
 ## Documentation
+
+### For Users/Developers
+- **[API Documentation](API_DOCUMENTATION.md)** - Complete API reference with all endpoints
+- **[Client Integration Guide](CLIENT_INTEGRATION_GUIDE.md)** - How to integrate the API in your app
+- **[Client Setup](CLIENT_SETUP.md)** - Configure clients to connect to server
+- **[Production Ready](PRODUCTION_READY.md)** - Production status and readiness checklist
+
+### For Operators
+- **[Production Checklist](PRODUCTION_CHECKLIST.md)** - What's done and what's needed
+- **[Bootstrap Setup](BOOTSTRAP_SETUP.md)** - Setting up bootstrap nodes
+- **[Peer Discovery](PEER_DISCOVERY.md)** - How nodes discover each other
+
+## Quick Links
 
 - `docs/SNAPCHAIN_OPTIMISM.md` - Understanding the architecture
 - `BLOCKCHAIN_NEEDED.md` - What blockchain things are needed
