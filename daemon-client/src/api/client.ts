@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_GATEWAY_URL || 'http://localhost:4003';
+// Remove trailing /api if present - the requests already include /api/v1/...
+const BASE_URL = import.meta.env.VITE_GATEWAY_URL || 'http://localhost:4003';
+const API_URL = BASE_URL.replace(/\/api\/?$/, '');
 
 // Simplified client - no x402 for now (can add later)
 export async function getFeed(fid?: number, type: string = 'algorithmic', limit: number = 50) {
