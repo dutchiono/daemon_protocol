@@ -5,7 +5,7 @@
  * Run this on the server: node test-endpoints.js
  */
 
-const http = require('http');
+import http from 'http';
 
 const endpoints = [
   { name: 'Hub Health', url: 'http://localhost:4001/health' },
@@ -53,11 +53,11 @@ async function runTests() {
   for (const endpoint of endpoints) {
     const result = await testEndpoint(endpoint.name, endpoint.url);
     results.push(result);
-    
+
     const status = result.success ? '✅' : '❌';
     const statusText = result.status || result.error || 'UNKNOWN';
     const time = result.time ? `(${result.time}ms)` : '';
-    
+
     console.log(`${status} ${result.name}: ${statusText} ${time}`);
     if (!result.success && result.error) {
       console.log(`   Error: ${result.error}`);
@@ -67,24 +67,24 @@ async function runTests() {
   console.log('\n========================================');
   console.log('Test Summary');
   console.log('========================================');
-  
+
   const successful = results.filter(r => r.success).length;
   const failed = results.filter(r => !r.success).length;
-  
+
   console.log(`✅ Passed: ${successful}`);
   console.log(`❌ Failed: ${failed}`);
-  
+
   if (failed > 0) {
     console.log('\nFailed endpoints:');
     results.filter(r => !r.success).forEach(r => {
       console.log(`  - ${r.name}: ${r.error || r.status}`);
     });
   }
-  
+
   console.log('\n========================================');
   console.log('Detailed Results');
   console.log('========================================\n');
-  
+
   results.forEach(r => {
     console.log(`${r.name}:`);
     console.log(`  URL: ${r.url}`);
