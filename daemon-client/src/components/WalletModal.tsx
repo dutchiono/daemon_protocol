@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWallet } from '../wallet/WalletProvider';
 import axios from 'axios';
 import './WalletModal.css';
@@ -16,20 +16,13 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
 
   const PDS_URL = import.meta.env.VITE_PDS_URL || 'http://50.21.187.69:4002';
 
-  // Reset username input when modal opens if user already has DID
-  useState(() => {
+  // Reset username input when modal opens or when did changes
+  useEffect(() => {
     if (isOpen && did) {
       setUsername('');
       setFidJustRegistered(false);
     }
-  });
-
-  // Update fidJustRegistered when did changes
-  useState(() => {
-    if (did && fidJustRegistered) {
-      // DID was just registered, show username input
-    }
-  });
+  }, [isOpen, did]);
 
   if (!isOpen) return null;
 
