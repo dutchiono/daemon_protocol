@@ -3,13 +3,21 @@ import axios from 'axios';
 const API_URL = import.meta.env.VITE_GATEWAY_URL || 'http://localhost:4003';
 
 // Simplified client - no x402 for now (can add later)
-export async function getFeed(fid: number, type: string = 'algorithmic', limit: number = 50) {
+export async function getFeed(fid?: number, type: string = 'algorithmic', limit: number = 50) {
   try {
+    const params: any = { type, limit };
+    if (fid) params.fid = fid;
+    
     const response = await axios.get(`${API_URL}/api/v1/feed`, {
-      params: { fid, type, limit }
+      params,
+      timeout: 10000 // 10 second timeout
     });
     return response.data;
   } catch (error: any) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
+      console.error('Network error: Could not connect to server. Please check if the server is running.');
+      return { posts: [], error: 'Network error: Could not connect to server' };
+    }
     if (error.response?.status === 402) {
       // Payment required - for now, return empty feed
       console.warn('Payment required for feed access');
@@ -20,12 +28,21 @@ export async function getFeed(fid: number, type: string = 'algorithmic', limit: 
 }
 
 export async function createPost(fid: number, text: string, parentHash?: string) {
-  const response = await axios.post(`${API_URL}/api/v1/posts`, {
-    fid,
-    text,
-    parentHash
-  });
-  return response.data;
+  try {
+    const response = await axios.post(`${API_URL}/api/v1/posts`, {
+      fid,
+      text,
+      parentHash
+    }, {
+      timeout: 10000
+    });
+    return response.data;
+  } catch (error: any) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
+      throw new Error('Network error: Could not connect to server. Please check if the server is running.');
+    }
+    throw error;
+  }
 }
 
 export async function getPost(hash: string) {

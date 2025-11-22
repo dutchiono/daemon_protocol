@@ -12,9 +12,24 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
   const { address, did, connect, registerDID, isRegistering, isConnected } = useWallet();
   const [username, setUsername] = useState('');
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
-  const [hasRegisteredFID, setHasRegisteredFID] = useState(false);
+  const [fidJustRegistered, setFidJustRegistered] = useState(false);
 
   const PDS_URL = import.meta.env.VITE_PDS_URL || 'http://50.21.187.69:4002';
+
+  // Reset username input when modal opens if user already has DID
+  useState(() => {
+    if (isOpen && did) {
+      setUsername('');
+      setFidJustRegistered(false);
+    }
+  });
+
+  // Update fidJustRegistered when did changes
+  useState(() => {
+    if (did && fidJustRegistered) {
+      // DID was just registered, show username input
+    }
+  });
 
   if (!isOpen) return null;
 
@@ -26,7 +41,7 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
   const handleRegisterFID = async () => {
     try {
       await registerDID();
-      setHasRegisteredFID(true);
+      setFidJustRegistered(true);
     } catch (error: any) {
       alert(error.message || 'Failed to register Daemon ID');
     }
@@ -41,7 +56,7 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
         walletAddress: address,
         handle: username.trim()
       });
-      
+
       alert(`Account created! Username: ${response.data.handle}`);
       onClose();
       // Refresh page to update user state
@@ -72,7 +87,7 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
             <>
               <p>Your wallet is connected, but you don't have a Daemon ID yet.</p>
               <p className="wallet-address">Address: {address?.slice(0, 6)}...{address?.slice(-4)}</p>
-              {!hasRegisteredFID ? (
+              {!fidJustRegistered && !did ? (
                 <>
                   <button
                     onClick={handleRegisterFID}
@@ -88,11 +103,16 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
                   <p className="wallet-modal-success">✅ Daemon ID registered! Now choose your username:</p>
                   <input
                     type="text"
-                    placeholder="Enter username"
+                    placeholder="Enter username (e.g., alice, bob123)"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="wallet-modal-input"
                     disabled={isCreatingAccount}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && username.trim() && !isCreatingAccount) {
+                        handleCreateAccount();
+                      }
+                    }}
                   />
                   <button
                     onClick={handleCreateAccount}
@@ -101,7 +121,7 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
                   >
                     {isCreatingAccount ? 'Creating Account...' : 'Create Account'}
                   </button>
-                  <p className="wallet-modal-hint">This will create your Daemon Social account</p>
+                  <p className="wallet-modal-hint">This will create your Daemon Social account with your username</p>
                 </>
               )}
             </>
