@@ -3,21 +3,21 @@
  * @notice Starts Hub node with DHT support
  */
 
+import { noise } from '@chainsafe/libp2p-noise';
+import { autoNAT } from '@libp2p/autonat';
 import { bootstrap } from '@libp2p/bootstrap';
+import { identify } from '@libp2p/identify';
 import { kadDHT } from '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
-import { noise } from '@chainsafe/libp2p-noise';
+import { uPnPNAT } from '@libp2p/upnp-nat';
 import { webSockets } from '@libp2p/websockets';
 import express from 'express';
-import { uPnPNAT } from '@libp2p/upnp-nat';
-import { autoNAT } from '@libp2p/autonat';
-import { identify } from '@libp2p/identify';
-import { logger } from './logger.js';
 import { createLibp2p } from 'libp2p';
 import { Database } from '../../social-network/hub/src/database.js';
 import { HubService } from '../../social-network/hub/src/hub-service.js';
 import { MessageValidator } from '../../social-network/hub/src/message-validator.js';
 import { SyncEngine } from '../../social-network/hub/src/sync-engine.js';
+import { logger } from './logger.js';
 
 export interface HubConfig {
   port: number;
@@ -148,7 +148,9 @@ export async function startHub(config: HubConfig) {
     res.json({ peers: hubService.getPeers(), count: hubService.getPeers().length });
   });
 
+  let serverStarted = false;
   const server = app.listen(config.port, () => {
+    serverStarted = true;
     console.log(`✅ Hub running on port ${config.port}`);
     console.log(`   Node ID: ${hubService.getNodeId()}`);
     console.log(`   DHT: Enabled`);
@@ -161,17 +163,21 @@ export async function startHub(config: HubConfig) {
     if (config.bootstrapNodes && config.bootstrapNodes.length > 0) {
       console.log(`   Bootstrap: ${config.bootstrapNodes.length} nodes`);
     }
-  }).on('error', (error: any) => {
-    if (error.code === 'EADDRINUSE') {
-      console.error(`❌ ERROR: Port ${config.port} is already in use.`);
+  });
+
+  server.on('error', (error: any) => {
+    // Only handle errors if server hasn't started yet
+    if (!serverStarted && error.code === 'EADDRINUSE') {
+      console.error(`\n❌ ERROR: Port ${config.port} is already in use!`);
       console.error(`   Another process is running on port ${config.port}`);
-      console.error(`   Kill the existing process or use a different port.`);
-      console.error(`   Run: lsof -ti:${config.port} | xargs kill -9  (on Linux/Mac)`);
+      console.error(`   Kill the existing process: lsof -ti:${config.port} | xargs kill -9`);
+      console.error(`   Or choose a different port.\n`);
       process.exit(1);
-    } else {
+    } else if (!serverStarted) {
       console.error(`❌ ERROR starting Hub server:`, error);
       throw error;
     }
+    // Ignore errors after server has started (they might be connection errors, etc.)
   });
 
   // Log address updates (NAT traversal success)
