@@ -6,7 +6,7 @@
 import { ethers } from 'ethers';
 import IdRegistryABI from '../../../contracts/artifacts/contracts/IdRegistry.sol/IdRegistry.json' with { type: 'json' };
 import KeyRegistryABI from '../../../contracts/artifacts/contracts/KeyRegistry.sol/KeyRegistry.json' with { type: 'json' };
-import { logger } from '../../../daemon-node/src/logger.js';
+import { logger } from './logger.js';
 import type { Config } from './config.js';
 import type { Message, ValidationResult } from './types.js';
 
