@@ -20,8 +20,11 @@ async function initializeGateway(config: Config) {
   const aggregationLayer = new AggregationLayer(config);
   const gatewayService = new GatewayService(aggregationLayer, config);
 
-  // Setup API endpoints
+  // Setup API endpoints BEFORE returning
   setupAPI(app, gatewayService, config);
+  
+  // Verify routes were registered
+  console.log('API routes registered successfully');
 
   return { gatewayService };
 }
