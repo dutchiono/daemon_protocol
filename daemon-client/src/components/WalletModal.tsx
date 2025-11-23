@@ -217,6 +217,24 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
               </button>
               <p className="wallet-modal-hint">This will create your Daemon Social account with your username</p>
             </>
+          ) : needsPDSAccount ? (
+            <>
+              <p className="wallet-modal-warning">⚠️ Account Setup Incomplete</p>
+              <p>You have a Gateway profile but need to create your PDS account to post.</p>
+              <p className="wallet-did">Daemon ID: {did}</p>
+              {existingProfile?.username && (
+                <p className="wallet-did">Username: @{existingProfile.username}</p>
+              )}
+              <button
+                onClick={handleCreateAccount}
+                className="connect-wallet-btn"
+                disabled={isCreatingAccount || checkingPDSAccount}
+                style={{ marginTop: '1rem', width: '100%' }}
+              >
+                {isCreatingAccount ? 'Creating PDS Account...' : 'Complete Account Setup'}
+              </button>
+              <p className="wallet-modal-hint">This will create your PDS account with username: @{existingProfile?.username || 'your-username'}</p>
+            </>
           ) : (
             <>
               <p>Wallet connected successfully!</p>
