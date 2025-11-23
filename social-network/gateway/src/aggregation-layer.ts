@@ -419,7 +419,8 @@ export class AggregationLayer {
     };
   }
 
-  async getUnreadNotificationCount(fid: number): Promise<number> {
+  async getUnreadNotificationCount(did: string): Promise<number> {
+    const fid = didToFid(did);
 
     try {
       // Count reactions on user's posts (likes, reposts, replies)
