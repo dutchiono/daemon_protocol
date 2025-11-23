@@ -144,6 +144,9 @@ function setupAPI(app: express.Application, pdsService: PDSService) {
         parseInt(limit as string),
         cursor as string | undefined
       );
+      // AT Protocol format: wrap records with uri and value
+      // But we need to get URIs from the database - for now return records directly
+      // The Gateway will handle both formats
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });

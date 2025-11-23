@@ -148,13 +148,22 @@ export class Database {
 
     const result = await this.pool.query(query, params);
 
+    // AT Protocol format: return records with uri, value, and cid
     // record_data is JSONB, so it's already an object, not a string
     const records = result.rows.map((row: any) => {
       const recordData = row.record_data;
+      let value: any;
       if (typeof recordData === 'string') {
-        return JSON.parse(recordData);
+        value = JSON.parse(recordData);
+      } else {
+        value = recordData;
       }
-      return recordData;
+      // Return in AT Protocol format: { uri, value, cid }
+      return {
+        uri: row.uri,
+        value: value,
+        cid: row.cid
+      };
     });
     const newCursor = records.length > 0 ? result.rows[result.rows.length - 1].created_at : undefined;
 

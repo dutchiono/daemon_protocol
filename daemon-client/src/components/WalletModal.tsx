@@ -54,7 +54,7 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
   // Check if user has a profile/username
   const { data: existingProfile, isLoading: checkingProfile } = useQuery({
     queryKey: ['profile', did],
-    queryFn: () => getProfile(did ? `did:daemon:${did}` : ''),
+    queryFn: () => getProfile(did || ''),
     enabled: !!did && isOpen,
     retry: false
   });
@@ -75,7 +75,7 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
         // Try to get profile from PDS - if it fails, we need to create PDS account
         const endpoint = needsXrpcPrefix ? '/xrpc/com.atproto.repo.getProfile' : '/com.atproto.repo.getProfile';
         const response = await axios.get(`${PDS_URL}${endpoint}`, {
-          params: { did: `did:daemon:${did}` }
+          params: { did: did }
         });
         setNeedsPDSAccount(false);
       } catch (error: any) {

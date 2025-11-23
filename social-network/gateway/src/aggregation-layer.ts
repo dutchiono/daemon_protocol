@@ -91,19 +91,30 @@ export class AggregationLayer {
                         const data: any = await response.json();
                         if (data.records && Array.isArray(data.records)) {
                             // Convert PDS records to post format
+                            // PDS returns records in AT Protocol format: { uri, value, cid }
                             for (const record of data.records) {
-                                if (record.value && record.value.text) {
+                                // Handle both formats: AT Protocol format (record.value) or flat format (record.text)
+                                const recordData = record.value || record;
+                                if (recordData && recordData.text) {
+                                    // Use URI from record if available, otherwise generate from timestamp
+                                    const hash = record.uri || `at://${did}/app.daemon.feed.post/${new Date(recordData.createdAt).getTime()}`;
                                     posts.push({
-                                        hash: record.uri,
+                                        hash: hash,
                                         did: did,
-                                        text: record.value.text,
-                                        timestamp: new Date(record.value.createdAt).getTime() / 1000,
+                                        text: recordData.text,
+                                        timestamp: new Date(recordData.createdAt).getTime() / 1000,
                                         messageType: 'post',
-                                        embeds: record.value.embed ? [record.value.embed] : []
+                                        embeds: recordData.embed ? [recordData.embed] : []
                                     });
                                 }
                             }
+                            console.log(`[AggregationLayer] Retrieved ${posts.length} posts from PDS for ${did}`);
+                        } else {
+                            console.log(`[AggregationLayer] No records in PDS response for ${did}`);
                         }
+                    } else {
+                        const errorText = await response.text();
+                        console.error(`[AggregationLayer] PDS query failed for ${did}: ${response.status} ${errorText}`);
                     }
                 } catch (error) {
                     console.error(`[AggregationLayer] Failed to query PDS for user ${did}:`, error);
@@ -228,7 +239,7 @@ export class AggregationLayer {
                         embeds: embeds || []
                     });
                     const retryMessageHash = ethers.keccak256(ethers.toUtf8Bytes(retryMessageContent));
-                    
+
                     // Submit to hubs
                     for (const hubEndpoint of this.hubEndpoints) {
                         try {

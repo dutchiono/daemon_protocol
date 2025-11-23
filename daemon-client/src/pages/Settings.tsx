@@ -28,7 +28,7 @@ export default function Settings() {
   // Load current profile
   const { data: currentProfile, isLoading: profileLoading } = useQuery({
     queryKey: ['profile', did],
-    queryFn: () => getProfile(did ? `did:daemon:${did}` : ''),
+    queryFn: () => getProfile(did || ''),
     enabled: !!did,
     retry: false
   });
@@ -121,11 +121,10 @@ export default function Settings() {
 
     setIsSaving(true);
     try {
-      const didString = did ? `did:daemon:${did}` : null;
-      if (!didString) {
+      if (!did) {
         throw new Error('Wallet not connected');
       }
-      await updateProfile(didString, profileData);
+      await updateProfile(did, profileData);
       await queryClient.invalidateQueries({ queryKey: ['profile', did] });
       setIsEditingProfile(false);
       alert('Profile updated successfully!');
