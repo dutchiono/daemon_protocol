@@ -67,7 +67,10 @@ export class AggregationLayer {
                                 timestamp: msg.timestamp,
                                 messageType: msg.messageType || 'post',
                                 parentHash: msg.parentHash,
-                                embeds: msg.embeds || []
+                                embeds: msg.embeds || [],
+                                signature: msg.signature,
+                                signingKey: msg.signingKey,
+                                verified: !!(msg.signature && msg.signingKey)
                             });
                         }
                     }
@@ -98,12 +101,15 @@ export class AggregationLayer {
                                 if (recordData && recordData.text) {
                                     // Use URI from record if available, otherwise generate from timestamp
                                     const hash = record.uri || `at://${did}/app.daemon.feed.post/${new Date(recordData.createdAt).getTime()}`;
+                                    // Extract parentHash from reply data if present
+                                    const parentHash = recordData.reply?.parent?.uri || recordData.reply?.root?.uri || undefined;
                                     posts.push({
                                         hash: hash,
                                         did: did,
                                         text: recordData.text,
                                         timestamp: new Date(recordData.createdAt).getTime() / 1000,
-                                        messageType: 'post',
+                                        messageType: parentHash ? 'reply' : 'post',
+                                        parentHash: parentHash,
                                         embeds: recordData.embed ? [recordData.embed] : []
                                     });
                                 }
@@ -122,9 +128,34 @@ export class AggregationLayer {
             }
         }
 
+        // Filter out replies (posts with parentHash) - only show top-level posts in main feed
+        const topLevelPosts = posts.filter(post => !post.parentHash);
+
         // Deduplicate and sort
-        const uniquePosts = this.deduplicatePosts(posts);
-        return uniquePosts.slice(0, limit);
+        const uniquePosts = this.deduplicatePosts(topLevelPosts);
+
+        // Enrich posts with usernames from profiles
+        const uniqueDids = [...new Set(uniquePosts.map(p => p.did))];
+        const profilePromises = uniqueDids.map(did =>
+            this.getProfile(did).catch(() => null)
+        );
+        const profiles = await Promise.all(profilePromises);
+
+        // Create a map of DID to username for quick lookup
+        const didToUsername = new Map<string, string | undefined>();
+        profiles.forEach((profile, index) => {
+            if (profile) {
+                didToUsername.set(uniqueDids[index], profile.username);
+            }
+        });
+
+        // Add usernames to posts
+        const enrichedPosts = uniquePosts.map(post => ({
+            ...post,
+            username: didToUsername.get(post.did)
+        }));
+
+        return enrichedPosts.slice(0, limit);
     }
     async createPost(did: string, text: string, parentHash?: string, embeds?: any[]) {
         // Use DID directly - no conversion needed

@@ -14,6 +14,10 @@ export interface Post {
   upvoteCount?: number;
   downvoteCount?: number;
   currentVote?: 'UP' | 'DOWN' | null; // Current user's vote
+  signature?: string; // Ed25519 signature
+  signingKey?: string; // Ed25519 public key (bytes32)
+  verified?: boolean; // Computed: signature && signingKey
+  username?: string; // Username from profile
 }
 
 export interface Profile {

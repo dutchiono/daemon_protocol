@@ -17,6 +17,10 @@ interface PostData {
   upvoteCount?: number;
   downvoteCount?: number;
   currentVote?: 'UP' | 'DOWN' | null;
+  signature?: string; // Ed25519 signature
+  signingKey?: string; // Ed25519 public key
+  verified?: boolean; // Computed: signature && signingKey
+  username?: string; // Username from profile
 }
 
 interface PostProps {
@@ -74,7 +78,14 @@ export default function Post({ post }: PostProps) {
         />
         <div className="post-content-wrapper">
           <div className="post-header">
-            <span className="post-author">@{post.fid}</span>
+            <span className="post-author">
+              @{post.username || post.did || post.fid || 'unknown'}
+              {post.verified && (
+                <span className="verified-badge" title="Cryptographically signed post">
+                  ✓
+                </span>
+              )}
+            </span>
             <span className="post-time">{formatTimestamp(post.timestamp)}</span>
           </div>
           <div className="post-content">
