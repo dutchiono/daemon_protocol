@@ -49,16 +49,16 @@ export class Database {
       throw new Error(`Invalid DID format: ${did}`);
     }
     const fid = parseInt(fidMatch[1], 10);
-    
+
     if (isNaN(fid) || fid <= 0) {
       throw new Error(`Invalid FID extracted from DID: ${did}`);
     }
 
     await this.pool.query(
-      `INSERT INTO profiles (fid, username, display_name, created_at)
-       VALUES ($1, $2, $2, NOW())
-       ON CONFLICT (fid) DO UPDATE SET username = $2, updated_at = NOW()`,
-      [fid, handle]
+      `INSERT INTO profiles (fid, did, username, display_name, created_at)
+       VALUES ($1, $2, $3, $3, NOW())
+       ON CONFLICT (fid) DO UPDATE SET did = $2, username = $3, updated_at = NOW()`,
+      [fid, did, handle]
     );
   }
 

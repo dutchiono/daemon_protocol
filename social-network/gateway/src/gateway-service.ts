@@ -6,6 +6,7 @@
 import { AggregationLayer } from './aggregation-layer.js';
 import type { Config } from './config.js';
 import type { Post, Profile, Feed, Reaction } from './types.js';
+import { didToFid, fidToDid } from './did-utils.js';
 
 export class GatewayService {
   private aggregationLayer: AggregationLayer;
@@ -17,17 +18,20 @@ export class GatewayService {
   }
 
   async getFeed(
-    fid: number,
+    did: string | null,
     type: string,
     limit: number,
     cursor?: string
   ): Promise<Feed> {
     try {
-      // If fid is 0 or not provided, return empty feed or general feed
-      if (!fid || fid === 0) {
+      // If did is null or empty, return empty feed or general feed
+      if (!did) {
         // Return empty feed for now - could be extended to show general feed
         return { posts: [], cursor: undefined };
       }
+
+      // Convert did to fid for internal operations
+      const fid = didToFid(did);
 
       // Get user's follows
       const follows = await this.aggregationLayer.getFollows(fid);
@@ -42,7 +46,7 @@ export class GatewayService {
 
       // Rank posts (algorithmic or chronological)
       const rankedPosts = type === 'algorithmic'
-        ? await this.rankPostsAlgorithmically(posts, fid)
+        ? await this.rankPostsAlgorithmically(posts, did)
         : posts.sort((a, b) => b.timestamp - a.timestamp);
 
       return {
@@ -57,13 +61,13 @@ export class GatewayService {
   }
 
   async createPost(
-    fid: number,
+    did: string,
     text: string,
     parentHash?: string,
     embeds?: any[]
   ): Promise<Post> {
     // Create post via aggregation layer
-    const post = await this.aggregationLayer.createPost(fid, text, parentHash, embeds);
+    const post = await this.aggregationLayer.createPost(did, text, parentHash, embeds);
 
     return post;
   }
@@ -72,12 +76,12 @@ export class GatewayService {
     return await this.aggregationLayer.getPost(hash);
   }
 
-  async getProfile(fid: number): Promise<Profile | null> {
-    return await this.aggregationLayer.getProfile(fid);
+  async getProfile(did: string): Promise<Profile | null> {
+    return await this.aggregationLayer.getProfile(did);
   }
 
   async updateProfile(
-    fid: number,
+    did: string,
     updates: {
       username?: string;
       displayName?: string;
@@ -87,24 +91,27 @@ export class GatewayService {
       website?: string;
     }
   ): Promise<Profile> {
-    return await this.aggregationLayer.updateProfile(fid, updates);
+    return await this.aggregationLayer.updateProfile(did, updates);
   }
 
-  async follow(followerFid: number, followingFid: number): Promise<{ success: boolean }> {
-    await this.aggregationLayer.createFollow(followerFid, followingFid);
+  async follow(followerDid: string, followingDid: string): Promise<{ success: boolean }> {
+    await this.aggregationLayer.createFollow(followerDid, followingDid);
     return { success: true };
   }
 
-  async unfollow(followerFid: number, followingFid: number): Promise<{ success: boolean }> {
+  async unfollow(followerDid: string, followingDid: string): Promise<{ success: boolean }> {
+    const followerFid = didToFid(followerDid);
+    const followingFid = didToFid(followingDid);
     await this.aggregationLayer.deleteFollow(followerFid, followingFid);
     return { success: true };
   }
 
   async createReaction(
-    fid: number,
+    did: string,
     targetHash: string,
     type: 'like' | 'repost' | 'quote'
   ): Promise<Reaction> {
+    const fid = didToFid(did);
     return await this.aggregationLayer.createReaction(fid, targetHash, type);
   }
 
@@ -117,11 +124,11 @@ export class GatewayService {
     return { results: [] };
   }
 
-  async getUnreadNotificationCount(fid: number): Promise<number> {
-    return await this.aggregationLayer.getUnreadNotificationCount(fid);
+  async getUnreadNotificationCount(did: string): Promise<number> {
+    return await this.aggregationLayer.getUnreadNotificationCount(did);
   }
 
-  private async rankPostsAlgorithmically(posts: Post[], fid: number): Promise<Post[]> {
+  private async rankPostsAlgorithmically(posts: Post[], did: string): Promise<Post[]> {
     // Simple algorithmic ranking based on:
     // - Recency (time decay)
     // - Engagement (likes, reposts, replies)

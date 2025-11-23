@@ -7,6 +7,7 @@ import pg from 'pg';
 // import Redis from 'redis'; // Optional - comment out if not installed
 import type { Config } from './config.js';
 import type { Post, Profile, Reaction } from './types.js';
+import { didToFid, fidToDid } from './did-utils.js';
 
 const { Pool } = pg;
 
@@ -124,17 +125,20 @@ export class AggregationLayer {
   }
 
   async createPost(
-    fid: number,
+    did: string,
     text: string,
     parentHash?: string,
     embeds?: any[]
   ): Promise<Post> {
+    // Convert did to fid for getUserPDS
+    const fid = didToFid(did);
+
     // Create post via user's PDS
     // Find user's PDS
     const userPds = await this.getUserPDS(fid);
 
     if (!userPds) {
-      throw new Error('User PDS not found');
+      throw new Error('User PDS not found. Please ensure PDS_ENDPOINTS is configured.');
     }
 
     // Create post on PDS
@@ -143,7 +147,7 @@ export class AggregationLayer {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        repo: `did:daemon:${fid}`,
+        repo: did,
         collection: 'app.bsky.feed.post',
         record: {
           $type: 'app.bsky.feed.post',
@@ -178,7 +182,7 @@ export class AggregationLayer {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               hash: (result as any).uri,
-              fid,
+              did,
               text,
               parentHash,
               timestamp: Math.floor(Date.now() / 1000),
@@ -194,7 +198,7 @@ export class AggregationLayer {
 
     return {
       hash: (result as any).uri,
-      fid,
+      did,
       text,
       parentHash,
       timestamp: Math.floor(Date.now() / 1000),
@@ -231,16 +235,19 @@ export class AggregationLayer {
     return null;
   }
 
-  async getProfile(fid: number): Promise<Profile | null> {
+  async getProfile(did: string): Promise<Profile | null> {
+    // Convert did to fid for database query
+    const fid = didToFid(did);
+
     // Check cache
     if (this.redis) {
-      const cached = await this.redis.get(`profile:${fid}`);
+      const cached = await this.redis.get(`profile:${did}`);
       if (cached) {
         return JSON.parse(cached);
       }
     }
 
-    // Query database
+    // Query database using fid
     const result = await this.db.query(
       `SELECT * FROM profiles WHERE fid = $1`,
       [fid]
@@ -252,25 +259,26 @@ export class AggregationLayer {
 
     const row = result.rows[0];
     const profile: Profile = {
-      fid,
+      did,
       username: row.username,
       displayName: row.display_name,
       bio: row.bio,
       avatar: row.avatar_cid,
       banner: row.banner_cid,
+      website: row.website,
       verified: row.verified
     };
 
-    // Cache
+    // Cache using did
     if (this.redis) {
-      await this.redis.setEx(`profile:${fid}`, 1800, JSON.stringify(profile)); // 30 min cache
+      await this.redis.setEx(`profile:${did}`, 1800, JSON.stringify(profile)); // 30 min cache
     }
 
     return profile;
   }
 
   async updateProfile(
-    fid: number,
+    did: string,
     updates: {
       username?: string;
       displayName?: string;
@@ -280,11 +288,9 @@ export class AggregationLayer {
       website?: string;
     }
   ): Promise<Profile> {
-    // Validate fid
-    if (!fid || isNaN(fid) || fid <= 0) {
-      throw new Error('Invalid fid: fid must be a positive number');
-    }
-    
+    // Convert did to fid for database operations
+    const fid = didToFid(did);
+
     // First, ensure the user exists in the users table
     const userCheck = await this.db.query(
       `SELECT fid FROM users WHERE fid = $1`,
@@ -297,10 +303,16 @@ export class AggregationLayer {
       // The address will be updated when the user connects their wallet
       const placeholderAddress = `0x${'0'.repeat(40)}`; // 0x0000...0000
       await this.db.query(
-        `INSERT INTO users (fid, address, created_at)
-         VALUES ($1, $2, NOW())
-         ON CONFLICT (fid) DO NOTHING`,
-        [fid, placeholderAddress]
+        `INSERT INTO users (fid, address, did, created_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (fid) DO UPDATE SET did = $3`,
+        [fid, placeholderAddress, did]
+      );
+    } else {
+      // Update did if it's missing
+      await this.db.query(
+        `UPDATE users SET did = $1 WHERE fid = $2 AND (did IS NULL OR did != $1)`,
+        [did, fid]
       );
     }
 
@@ -336,15 +348,19 @@ export class AggregationLayer {
 
     if (updateFields.length === 0) {
       // No updates, just return existing profile
-      const existing = await this.getProfile(fid);
+      const existing = await this.getProfile(did);
       if (!existing) {
         throw new Error('Profile not found');
       }
       return existing;
     }
 
-    // Add updated_at (doesn't need a parameter)
+    // Add updated_at and did (doesn't need parameters for updated_at)
     updateFields.push(`updated_at = NOW()`);
+    if (!updateFields.some(f => f.includes('did'))) {
+      updateFields.push(`did = $${paramIndex++}`);
+      values.push(did);
+    }
 
     // Add fid for WHERE clause
     values.push(fid);
@@ -362,12 +378,13 @@ export class AggregationLayer {
     if (result.rows.length === 0) {
       // Profile doesn't exist, create it
       const insertQuery = `
-        INSERT INTO profiles (fid, username, display_name, bio, avatar_cid, banner_cid, website, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+        INSERT INTO profiles (fid, did, username, display_name, bio, avatar_cid, banner_cid, website, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
         RETURNING *
       `;
       const insertResult = await this.db.query(insertQuery, [
         fid,
+        did,
         updates.username || null,
         updates.displayName || null,
         updates.bio || null,
@@ -375,28 +392,29 @@ export class AggregationLayer {
         updates.banner || null,
         updates.website || null
       ]);
-      return this.mapRowToProfile(insertResult.rows[0], fid);
+      return this.mapRowToProfile(insertResult.rows[0], did);
     }
 
     const row = result.rows[0];
-    const profile = this.mapRowToProfile(row, fid);
+    const profile = this.mapRowToProfile(row, did);
 
-    // Invalidate cache
+    // Invalidate cache using did
     if (this.redis) {
-      await this.redis.del(`profile:${fid}`);
+      await this.redis.del(`profile:${did}`);
     }
 
     return profile;
   }
 
-  private mapRowToProfile(row: any, fid: number): Profile {
+  private mapRowToProfile(row: any, did: string): Profile {
     return {
-      fid,
+      did,
       username: row.username,
       displayName: row.display_name,
       bio: row.bio,
       avatar: row.avatar_cid,
       banner: row.banner_cid,
+      website: row.website,
       verified: row.verified
     };
   }
@@ -443,7 +461,11 @@ export class AggregationLayer {
     }
   }
 
-  async createFollow(followerFid: number, followingFid: number): Promise<void> {
+  async createFollow(followerDid: string, followingDid: string): Promise<void> {
+    // Convert dids to fids for database operations
+    const followerFid = didToFid(followerDid);
+    const followingFid = didToFid(followingDid);
+
     // Create follow on user's PDS
     const userPds = await this.getUserPDS(followerFid);
 
@@ -456,11 +478,11 @@ export class AggregationLayer {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        repo: `did:daemon:${followerFid}`,
+        repo: followerDid,
         collection: 'app.bsky.graph.follow',
         record: {
           $type: 'app.bsky.graph.follow',
-          subject: `did:daemon:${followingFid}`,
+          subject: followingDid,
           createdAt: new Date().toISOString()
         }
       })
@@ -509,7 +531,7 @@ export class AggregationLayer {
     return {
       type,
       targetHash,
-      fid,
+      did: fidToDid(fid),
       timestamp: Math.floor(Date.now() / 1000)
     };
   }
@@ -527,7 +549,7 @@ export class AggregationLayer {
 
     return result.rows.map((row: any) => ({
       hash: row.hash,
-      fid: parseInt(row.fid),
+      did: row.did || fidToDid(parseInt(row.fid)),
       text: row.text,
       timestamp: parseInt(row.timestamp)
     }));
@@ -542,11 +564,12 @@ export class AggregationLayer {
     );
 
     return result.rows.map((row: any) => ({
-      fid: parseInt(row.fid),
+      did: row.did || fidToDid(parseInt(row.fid)),
       username: row.username,
       displayName: row.display_name,
       bio: row.bio,
       avatar: row.avatar_cid,
+      website: row.website,
       verified: row.verified
     }));
   }

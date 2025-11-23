@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getProfile } from '../api/client';
+import { fidToDid } from '../utils/did';
 import './Profile.css';
 
 interface ProfileProps {
@@ -7,9 +8,11 @@ interface ProfileProps {
 }
 
 export default function Profile({ fid }: ProfileProps) {
+  const did = fidToDid(fid);
   const { data: profile, isLoading, error } = useQuery({
-    queryKey: ['profile', fid],
-    queryFn: () => getProfile(fid)
+    queryKey: ['profile', did],
+    queryFn: () => getProfile(did!),
+    enabled: did !== null
   });
 
   if (isLoading) {

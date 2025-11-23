@@ -39,14 +39,14 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
   const protectedRoutes = express.Router();
   protectedRoutes.use(x402Middleware(config));
 
-  // Feed endpoints
+  // Feed endpoints (protected - requires x402 payment)
   protectedRoutes.get('/api/v1/feed', async (req, res) => {
     try {
-      const { fid, type = 'algorithmic', limit = 50, cursor } = req.query;
+      const { did, type = 'algorithmic', limit = 50, cursor } = req.query;
       const feed = await gatewayService.getFeed(
-        parseInt(fid as string),
+        (did as string) || null,
         type as string,
-        parseInt(limit as string),
+        parseInt(limit as string) || 50,
         cursor as string | undefined
       );
       res.json(feed);
@@ -55,11 +55,17 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
     }
   });
 
-  // Post endpoints
+  // Post endpoints (protected - requires x402 payment)
   protectedRoutes.post('/api/v1/posts', async (req, res) => {
     try {
-      const { fid, text, parentHash, embeds } = req.body;
-      const result = await gatewayService.createPost(fid, text, parentHash, embeds);
+      const { did, text, parentHash, embeds } = req.body;
+      if (!did) {
+        return res.status(400).json({ error: 'did is required' });
+      }
+      if (!did.startsWith('did:daemon:')) {
+        return res.status(400).json({ error: 'Invalid did format. Expected did:daemon:${fid}' });
+      }
+      const result = await gatewayService.createPost(did, text, parentHash, embeds);
       res.json(result);
     } catch (error) {
       res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
@@ -79,20 +85,21 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
   });
 
   // Profile endpoints (public read, protected write)
-  app.get('/api/v1/profile/:fid', async (req, res) => {
+  // Accept did in URL: /api/v1/profile/:did
+  app.get('/api/v1/profile/:did', async (req, res) => {
     try {
-      const fid = parseInt(req.params.fid);
-      
-      // Validate fid
-      if (isNaN(fid) || fid <= 0) {
-        return res.status(400).json({ error: 'Invalid fid' });
+      const did = req.params.did;
+
+      // Validate did format
+      if (!did || !did.startsWith('did:daemon:')) {
+        return res.status(400).json({ error: 'Invalid did format. Expected did:daemon:${fid}' });
       }
-      
-      const profile = await gatewayService.getProfile(fid);
+
+      const profile = await gatewayService.getProfile(did);
       if (!profile) {
         // Return empty profile instead of 404 to make frontend handling easier
         return res.json({
-          fid,
+          did,
           username: null,
           displayName: null,
           bio: null,
@@ -108,18 +115,18 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
     }
   });
 
-  protectedRoutes.put('/api/v1/profile/:fid', async (req, res) => {
+  protectedRoutes.put('/api/v1/profile/:did', async (req, res) => {
     try {
-      const fid = parseInt(req.params.fid);
-      
-      // Validate fid
-      if (isNaN(fid) || fid <= 0) {
-        return res.status(400).json({ error: 'Invalid fid' });
+      const did = req.params.did;
+
+      // Validate did format
+      if (!did || !did.startsWith('did:daemon:')) {
+        return res.status(400).json({ error: 'Invalid did format. Expected did:daemon:${fid}' });
       }
-      
+
       const { username, displayName, bio, avatar, banner, website } = req.body;
 
-      const profile = await gatewayService.updateProfile(fid, {
+      const profile = await gatewayService.updateProfile(did, {
         username,
         displayName,
         bio,
@@ -137,8 +144,11 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
   // Follow endpoints
   protectedRoutes.post('/api/v1/follow', async (req, res) => {
     try {
-      const { followerFid, followingFid } = req.body;
-      const result = await gatewayService.follow(followerFid, followingFid);
+      const { followerDid, followingDid } = req.body;
+      if (!followerDid || !followingDid) {
+        return res.status(400).json({ error: 'followerDid and followingDid are required' });
+      }
+      const result = await gatewayService.follow(followerDid, followingDid);
       res.json(result);
     } catch (error) {
       res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
@@ -147,8 +157,11 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
 
   protectedRoutes.post('/api/v1/unfollow', async (req, res) => {
     try {
-      const { followerFid, followingFid } = req.body;
-      const result = await gatewayService.unfollow(followerFid, followingFid);
+      const { followerDid, followingDid } = req.body;
+      if (!followerDid || !followingDid) {
+        return res.status(400).json({ error: 'followerDid and followingDid are required' });
+      }
+      const result = await gatewayService.unfollow(followerDid, followingDid);
       res.json(result);
     } catch (error) {
       res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
@@ -158,8 +171,11 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
   // Reaction endpoints
   protectedRoutes.post('/api/v1/reactions', async (req, res) => {
     try {
-      const { fid, targetHash, type } = req.body;
-      const result = await gatewayService.createReaction(fid, targetHash, type);
+      const { did, targetHash, type } = req.body;
+      if (!did) {
+        return res.status(400).json({ error: 'did is required' });
+      }
+      const result = await gatewayService.createReaction(did, targetHash, type);
       res.json(result);
     } catch (error) {
       res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
@@ -184,11 +200,14 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
   // Notifications endpoint (public - just a count)
   app.get('/api/v1/notifications/count', async (req, res) => {
     try {
-      const { fid } = req.query;
-      if (!fid) {
-        return res.status(400).json({ error: 'fid is required' });
+      const { did } = req.query;
+      if (!did) {
+        return res.status(400).json({ error: 'did is required' });
       }
-      const count = await gatewayService.getUnreadNotificationCount(parseInt(fid as string));
+      if (typeof did !== 'string' || !did.startsWith('did:daemon:')) {
+        return res.status(400).json({ error: 'Invalid did format. Expected did:daemon:${fid}' });
+      }
+      const count = await gatewayService.getUnreadNotificationCount(did);
       res.json({ count });
     } catch (error) {
       res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });

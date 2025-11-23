@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import Post from './Post';
 import { getFeed } from '../api/client';
+import { fidToDid } from '../utils/did';
 import './Feed.css';
 
 interface FeedProps {
@@ -8,9 +9,10 @@ interface FeedProps {
 }
 
 export default function Feed({ did }: FeedProps) {
+  const didString = fidToDid(did);
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['feed', did],
-    queryFn: () => getFeed(did || 0, 'algorithmic', 50),
+    queryFn: () => getFeed(didString, 'algorithmic', 50),
     enabled: did !== null,
     refetchInterval: 30000
   });

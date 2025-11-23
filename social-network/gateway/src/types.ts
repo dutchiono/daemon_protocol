@@ -5,7 +5,7 @@
 
 export interface Post {
   hash: string;
-  fid: number;
+  did: string; // did:daemon:${fid}
   text: string;
   parentHash?: string;
   timestamp: number;
@@ -13,12 +13,13 @@ export interface Post {
 }
 
 export interface Profile {
-  fid: number;
+  did: string; // did:daemon:${fid}
   username?: string;
   displayName?: string;
   bio?: string;
   avatar?: string;
   banner?: string;
+  website?: string;
   verified: boolean;
 }
 
@@ -30,7 +31,7 @@ export interface Feed {
 export interface Reaction {
   type: 'like' | 'repost' | 'quote';
   targetHash: string;
-  fid: number;
+  did: string; // did:daemon:${fid}
   timestamp: number;
 }
 

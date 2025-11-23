@@ -8,7 +8,7 @@ export default function Trending() {
   // For now, use regular feed
   const { data, isLoading, error } = useQuery({
     queryKey: ['trending'],
-    queryFn: () => getFeed(0, 'algorithmic', 50), // No specific user for trending
+    queryFn: () => getFeed(null, 'algorithmic', 50), // No specific user for trending
     refetchInterval: 60000 // Every minute
   });
 

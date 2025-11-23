@@ -15,7 +15,8 @@ export default function Sidebar() {
   // Fetch unread notification count
   const { data: notificationCount = 0 } = useQuery({
     queryKey: ['notificationCount', did],
-    queryFn: () => getUnreadNotificationCount(did!),
+    queryFn: () => getUnreadNotificationCount(did ? `did:daemon:${did}` : ''),
+    enabled: did !== null,
     enabled: !!did,
     refetchInterval: 30000, // Refresh every 30 seconds
   });
@@ -23,7 +24,8 @@ export default function Sidebar() {
   // Fetch user profile for username display
   const { data: userProfile } = useQuery({
     queryKey: ['profile', did],
-    queryFn: () => getProfile(did!),
+    queryFn: () => getProfile(did ? `did:daemon:${did}` : ''),
+    enabled: did !== null,
     enabled: !!did,
     retry: false
   });

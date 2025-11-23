@@ -8,7 +8,7 @@ export default function Feed() {
   const { did } = useWallet();
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['feed', did],
-    queryFn: () => getFeed(did || undefined, 'algorithmic', 50),
+    queryFn: () => getFeed(did ? `did:daemon:${did}` : null, 'algorithmic', 50),
     enabled: did !== null,
     refetchInterval: 30000,
     retry: 2

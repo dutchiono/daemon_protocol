@@ -21,13 +21,13 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
     if (typeof window !== 'undefined') {
       const protocol = window.location.protocol;
       const host = window.location.host;
-      
+
       // If on production domain, use same protocol and host with /xrpc
       if (host.includes('daemon.bushleague.xyz') || host.includes('bushleague.xyz')) {
         return `${protocol}//${host}/xrpc`;
       }
     }
-    
+
     // Fallback to env var or direct PDS URL for dev
     return import.meta.env.VITE_PDS_URL || 'http://50.21.187.69:4002';
   };
@@ -42,7 +42,8 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
   // Check if user has a profile/username
   const { data: existingProfile, isLoading: checkingProfile } = useQuery({
     queryKey: ['profile', did],
-    queryFn: () => getProfile(did!),
+    queryFn: () => getProfile(did ? `did:daemon:${did}` : ''),
+    enabled: did !== null,
     enabled: !!did && isOpen,
     retry: false
   });

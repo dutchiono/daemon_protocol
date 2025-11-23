@@ -5,13 +5,13 @@ const getBaseUrl = () => {
   if (typeof window !== 'undefined') {
     const protocol = window.location.protocol;
     const host = window.location.host;
-    
+
     // If on production domain, use same protocol and host
     if (host.includes('daemon.bushleague.xyz') || host.includes('bushleague.xyz')) {
       return `${protocol}//${host}`;
     }
   }
-  
+
   // Fallback to env var or localhost for dev
   return import.meta.env.VITE_GATEWAY_URL || 'http://localhost:4003';
 };
@@ -20,10 +20,10 @@ const BASE_URL = getBaseUrl();
 const API_URL = BASE_URL.replace(/\/api\/?$/, '');
 
 // Simplified client - no x402 for now (can add later)
-export async function getFeed(fid?: number, type: string = 'algorithmic', limit: number = 50) {
+export async function getFeed(did?: string | null, type: string = 'algorithmic', limit: number = 50) {
   try {
     const params: any = { type, limit };
-    if (fid) params.fid = fid;
+    if (did) params.did = did;
 
     const response = await axios.get(`${API_URL}/api/v1/feed`, {
       params,
@@ -44,10 +44,10 @@ export async function getFeed(fid?: number, type: string = 'algorithmic', limit:
   }
 }
 
-export async function createPost(fid: number, text: string, parentHash?: string) {
+export async function createPost(did: string, text: string, parentHash?: string) {
   try {
     const response = await axios.post(`${API_URL}/api/v1/posts`, {
-      fid,
+      did,
       text,
       parentHash
     }, {
@@ -67,13 +67,13 @@ export async function getPost(hash: string) {
   return response.data;
 }
 
-export async function getProfile(fid: number) {
-  const response = await axios.get(`${API_URL}/api/v1/profile/${fid}`);
+export async function getProfile(did: string) {
+  const response = await axios.get(`${API_URL}/api/v1/profile/${encodeURIComponent(did)}`);
   return response.data;
 }
 
 export async function updateProfile(
-  fid: number,
+  did: string,
   updates: {
     username?: string;
     displayName?: string;
@@ -83,33 +83,34 @@ export async function updateProfile(
     website?: string;
   }
 ) {
-  const response = await axios.put(`${API_URL}/api/v1/profile/${fid}`, updates, {
+  const response = await axios.put(`${API_URL}/api/v1/profile/${encodeURIComponent(did)}`, updates, {
     timeout: 10000
   });
   return response.data;
 }
 
-export async function likePost(targetHash: string) {
-  // Would need fid from context
+export async function likePost(did: string, targetHash: string) {
   const response = await axios.post(`${API_URL}/api/v1/reactions`, {
+    did,
     targetHash,
     type: 'like'
   });
   return response.data;
 }
 
-export async function repostPost(targetHash: string) {
+export async function repostPost(did: string, targetHash: string) {
   const response = await axios.post(`${API_URL}/api/v1/reactions`, {
+    did,
     targetHash,
     type: 'repost'
   });
   return response.data;
 }
 
-export async function getUnreadNotificationCount(fid: number) {
+export async function getUnreadNotificationCount(did: string) {
   try {
     const response = await axios.get(`${API_URL}/api/v1/notifications/count`, {
-      params: { fid },
+      params: { did },
       timeout: 10000
     });
     return response.data.count || 0;

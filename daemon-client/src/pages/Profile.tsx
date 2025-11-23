@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useWallet } from '../wallet/WalletProvider';
 import { getProfile } from '../api/client';
+import { fidToDid } from '../utils/did';
 import Post from '../components/Post';
 import './Profile.css';
 
@@ -12,12 +13,13 @@ export default function Profile() {
 
   // Use URL fid if provided, otherwise use current user's did
   const profileFid = urlFid ? parseInt(urlFid) : (did || null);
+  const profileDid = profileFid ? fidToDid(profileFid) : null;
   const isOwnProfile = !urlFid && did !== null;
 
   const { data: profile, isLoading: profileLoading, error: profileError } = useQuery({
-    queryKey: ['profile', profileFid],
-    queryFn: () => getProfile(profileFid!),
-    enabled: profileFid !== null,
+    queryKey: ['profile', profileDid],
+    queryFn: () => getProfile(profileDid!),
+    enabled: profileDid !== null,
     retry: false
   });
 

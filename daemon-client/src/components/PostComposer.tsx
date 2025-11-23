@@ -35,7 +35,11 @@ export default function PostComposer({ did, onPostCreated, onCancel }: PostCompo
     setError(null);
 
     try {
-      await createPost(did, text);
+      const didString = did ? `did:daemon:${did}` : null;
+      if (!didString) {
+        throw new Error('Wallet not connected');
+      }
+      await createPost(didString, text);
       setText('');
       onPostCreated();
     } catch (err) {
