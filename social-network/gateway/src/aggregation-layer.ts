@@ -160,23 +160,26 @@ export class AggregationLayer {
 
     const result = await response.json();
 
-    // Also submit to hubs for propagation
-    for (const hubEndpoint of this.hubEndpoints) {
-      try {
-        await fetch(`${hubEndpoint}/api/v1/messages`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            hash: (result as any).uri,
-            fid,
-            text,
-            parentHash,
-            timestamp: Math.floor(Date.now() / 1000),
-            embeds
-          })
-        });
-      } catch (error) {
-        console.error(`Failed to submit to hub ${hubEndpoint}:`, error);
+    // Also submit to hubs for propagation (optional - hub might not be running)
+    if (this.hubEndpoints.length > 0) {
+      for (const hubEndpoint of this.hubEndpoints) {
+        try {
+          await fetch(`${hubEndpoint}/api/v1/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              hash: (result as any).uri,
+              fid,
+              text,
+              parentHash,
+              timestamp: Math.floor(Date.now() / 1000),
+              embeds
+            })
+          });
+        } catch (error) {
+          // Hub is optional - just log and continue
+          console.error(`Failed to submit to hub ${hubEndpoint}:`, error);
+        }
       }
     }
 
@@ -280,8 +283,8 @@ export class AggregationLayer {
       // The address will be updated when the user connects their wallet
       const placeholderAddress = `0x${'0'.repeat(40)}`; // 0x0000...0000
       await this.db.query(
-        `INSERT INTO users (fid, address, created_at) 
-         VALUES ($1, $2, NOW()) 
+        `INSERT INTO users (fid, address, created_at)
+         VALUES ($1, $2, NOW())
          ON CONFLICT (fid) DO NOTHING`,
         [fid, placeholderAddress]
       );

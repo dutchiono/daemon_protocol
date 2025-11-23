@@ -12,6 +12,9 @@ export class Database {
   private pool: pg.Pool;
 
   constructor(connectionString: string) {
+    if (!connectionString || connectionString.trim() === '') {
+      throw new Error('DATABASE_URL is required for PDS');
+    }
     this.pool = new Pool({ connectionString });
   }
 
