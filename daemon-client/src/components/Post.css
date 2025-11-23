@@ -196,3 +196,11 @@
   cursor: not-allowed;
 }
 
+/* Threaded replies section */
+.replies-thread {
+  margin-top: 1rem;
+  padding-left: 2rem;
+  border-left: 2px solid #333;
+  margin-left: 1rem;
+}
+

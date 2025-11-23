@@ -166,7 +166,7 @@ export class AggregationLayer {
             try {
                 // Query database for all top-level posts (not replies)
                 const result = await this.db.query(`
-                    SELECT hash, did, text, timestamp, message_type, parent_hash, embeds
+                    SELECT hash, did, text, timestamp, message_type, parent_hash
                     FROM messages
                     WHERE deleted = false AND parent_hash IS NULL
                     ORDER BY timestamp DESC
@@ -181,7 +181,7 @@ export class AggregationLayer {
                         timestamp: parseInt(row.timestamp),
                         messageType: row.message_type || 'post',
                         parentHash: row.parent_hash || undefined,
-                        embeds: row.embeds || []
+                        embeds: [] // Embeds are in separate message_embeds table
                     });
                 }
             } catch (error) {
@@ -562,7 +562,7 @@ export class AggregationLayer {
         if (this.db) {
             try {
                 const result = await this.db.query(`
-                    SELECT hash, did, text, timestamp, message_type, parent_hash, embeds
+                    SELECT hash, did, text, timestamp, message_type, parent_hash
                     FROM messages
                     WHERE parent_hash = $1 AND deleted = false
                     ORDER BY timestamp DESC
@@ -579,7 +579,7 @@ export class AggregationLayer {
                             timestamp: parseInt(row.timestamp),
                             messageType: row.message_type || 'reply',
                             parentHash: row.parent_hash,
-                            embeds: row.embeds || []
+                            embeds: [] // Embeds are in separate message_embeds table
                         });
                     }
                 }
@@ -624,7 +624,33 @@ export class AggregationLayer {
         // Query database by DID only
         const result = await this.db.query(`SELECT * FROM profiles WHERE did = $1`, [did]);
         if (result.rows.length === 0) {
-            return null;
+            // Auto-create basic profile with DID as username if it doesn't exist
+            try {
+                const insertResult = await this.db.query(`
+                    INSERT INTO profiles (did, username, display_name, created_at)
+                    VALUES ($1, $2, $2, NOW())
+                    RETURNING *
+                `, [did, did]);
+                const row = insertResult.rows[0];
+                const profile = {
+                    did: row.did || did,
+                    username: row.username,
+                    displayName: row.display_name,
+                    bio: row.bio,
+                    avatar: row.avatar_cid,
+                    banner: row.banner_cid,
+                    verified: row.verified
+                };
+                // Cache
+                if (this.redis) {
+                    await this.redis.setEx(`profile:${did}`, 1800, JSON.stringify(profile)); // 30 min cache
+                }
+                return profile;
+            } catch (error) {
+                console.error(`[AggregationLayer] Failed to auto-create profile for ${did}:`, error);
+                // Return null if auto-creation fails
+                return null;
+            }
         }
         const row = result.rows[0];
         const profile = {

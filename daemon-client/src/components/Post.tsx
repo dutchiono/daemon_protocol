@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { likePost, repostPost, createPost, getReactions, getFeed } from '../api/client';
+import { likePost, repostPost, createPost, getReactions, getFeed, getReplies } from '../api/client';
 import { useWallet } from '../wallet/WalletProvider';
 import PostVoteClient from './post-vote/PostVoteClient';
 import RepliesSection from './RepliesSection';
@@ -53,10 +53,8 @@ export default function Post({ post }: PostProps) {
     queryKey: ['replyCount', post.hash],
     queryFn: async () => {
       try {
-        const feedData = await getFeed(null, 'new', 200);
-        const allPosts = feedData.posts || [];
-        const replies = allPosts.filter((p: PostData) => p.parentHash === post.hash);
-        return replies.length;
+        const repliesData = await getReplies(post.hash);
+        return repliesData.replies?.length || 0;
       } catch {
         return 0;
       }
@@ -239,9 +237,11 @@ export default function Post({ post }: PostProps) {
         </div>
       )}
 
-      {/* Replies section */}
+      {/* Threaded replies section */}
       {showReplies && !post.parentHash && (
-        <RepliesSection postHash={post.hash} />
+        <div className="replies-thread">
+          <RepliesSection postHash={post.hash} />
+        </div>
       )}
     </div>
   );
