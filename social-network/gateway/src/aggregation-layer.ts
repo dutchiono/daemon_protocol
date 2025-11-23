@@ -27,19 +27,19 @@ export class AggregationLayer {
             this.redis.connect().catch(console.error);
         }
     }
-    async getFollows(fid: number) {
+    async getFollows(did: string): Promise<number[]> {
         // Check cache first
-        const cacheKey = `follows:${fid}`;
+        const cacheKey = `follows:${did}`;
         if (this.redis) {
             const cached = await this.redis.get(cacheKey);
             if (cached) {
                 return JSON.parse(cached);
             }
         }
-        // Query database
-        const result = await this.db.query(`SELECT following_fid FROM follows
-         WHERE follower_fid = $1 AND active = true`, [fid]);
-        const follows = result.rows.map((row) => parseInt(row.following_fid));
+        // Query database using DIDs
+        const result = await this.db.query(`SELECT following_did FROM follows
+         WHERE follower_did = $1 AND active = true`, [did]);
+        const follows = result.rows.map((row) => didToFid(row.following_did));
         // Cache result
         if (this.redis) {
             await this.redis.setEx(cacheKey, 300, JSON.stringify(follows)); // 5 min cache
@@ -47,7 +47,7 @@ export class AggregationLayer {
         return follows;
     }
     async getPostsFromUsers(fids: number[], type: string, limit: number, cursor?: string) {
-        // Query from hubs
+        // Query from hubs first
         const posts: any[] = [];
         for (const hubEndpoint of this.hubEndpoints) {
             try {
@@ -61,9 +61,45 @@ export class AggregationLayer {
                 }
             }
             catch (error) {
-                console.error(`Failed to query hub ${hubEndpoint}:`, error);
+                console.error(`[AggregationLayer] Failed to query hub ${hubEndpoint}:`, error);
             }
         }
+
+        // If Hub has no posts, fallback to querying PDS directly
+        if (posts.length === 0 && this.pdsEndpoints && this.pdsEndpoints.length > 0) {
+            console.log(`[AggregationLayer] Hub returned no posts, querying PDS directly for ${fids.length} users`);
+            const userPds = this.pdsEndpoints[0]; // Use first PDS for now
+
+            for (const fid of fids) {
+                try {
+                    const did = `did:daemon:${fid}`;
+                    // Query PDS for posts from this user
+                    const response = await fetch(`${userPds}/xrpc/com.atproto.repo.listRecords?repo=${did}&collection=app.daemon.feed.post&limit=${limit}`);
+                    if (response.ok) {
+                        const data: any = await response.json();
+                        if (data.records && Array.isArray(data.records)) {
+                            // Convert PDS records to post format
+                            for (const record of data.records) {
+                                if (record.value && record.value.text) {
+                                    posts.push({
+                                        hash: record.uri,
+                                        fid: fid,
+                                        did: did,
+                                        text: record.value.text,
+                                        timestamp: new Date(record.value.createdAt).getTime() / 1000,
+                                        messageType: 'post',
+                                        embeds: record.value.embed ? [record.value.embed] : []
+                                    });
+                                }
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error(`[AggregationLayer] Failed to query PDS for user ${fid}:`, error);
+                }
+            }
+        }
+
         // Deduplicate and sort
         const uniquePosts = this.deduplicatePosts(posts);
         return uniquePosts.slice(0, limit);
@@ -89,7 +125,7 @@ export class AggregationLayer {
 
         // Build record object, ensuring all values are serializable
         const record: any = {
-            $type: 'app.bsky.feed.post',
+            $type: 'app.daemon.feed.post',
             text: text || '',
             createdAt: new Date().toISOString()
         };
@@ -118,7 +154,7 @@ export class AggregationLayer {
         // Build request body, removing undefined values
         const requestBody = {
             repo: did,
-            collection: 'app.bsky.feed.post',
+            collection: 'app.daemon.feed.post',
             record: record
         };
 
@@ -212,21 +248,33 @@ export class AggregationLayer {
         // Also submit to hubs for propagation
         for (const hubEndpoint of this.hubEndpoints) {
             try {
-                await fetch(`${hubEndpoint}/api/v1/messages`, {
+                const hubMessage = {
+                    hash: result.uri,
+                    fid,
+                    text,
+                    messageType: parentHash ? 'reply' : 'post' as 'post' | 'reply',
+                    parentHash: parentHash || undefined,
+                    rootParentHash: parentHash || undefined, // For now, same as parentHash
+                    timestamp: Math.floor(Date.now() / 1000),
+                    embeds: embeds || [],
+                    deleted: false
+                };
+                console.log(`[AggregationLayer] Submitting message to hub ${hubEndpoint}:`, JSON.stringify(hubMessage, null, 2));
+                const hubResponse = await fetch(`${hubEndpoint}/api/v1/messages`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        hash: result.uri,
-                        fid,
-                        text,
-                        parentHash: parentHash || null,
-                        timestamp: Math.floor(Date.now() / 1000),
-                        embeds: embeds || []
-                    })
+                    body: JSON.stringify(hubMessage)
                 });
+                if (!hubResponse.ok) {
+                    const errorText = await hubResponse.text();
+                    console.error(`[AggregationLayer] Hub ${hubEndpoint} rejected message: ${hubResponse.status} ${errorText}`);
+                } else {
+                    const hubResult = await hubResponse.json();
+                    console.log(`[AggregationLayer] Message submitted to hub ${hubEndpoint} successfully:`, hubResult);
+                }
             }
             catch (error) {
-                console.error(`Failed to submit to hub ${hubEndpoint}:`, error);
+                console.error(`[AggregationLayer] Failed to submit to hub ${hubEndpoint}:`, error);
             }
         }
         return {
@@ -309,8 +357,6 @@ export class AggregationLayer {
         return profile;
     }
     async createFollow(followerDid: string, followingDid: string) {
-        const followerFid = didToFid(followerDid);
-        const followingFid = didToFid(followingDid);
         // Create follow on user's PDS
         const userPds = await this.getUserPDS(followerDid);
         if (!userPds) {
@@ -321,29 +367,29 @@ export class AggregationLayer {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 repo: followerDid,
-                collection: 'app.bsky.graph.follow',
+                collection: 'app.daemon.graph.follow',
                 record: {
-                    $type: 'app.bsky.graph.follow',
+                    $type: 'app.daemon.graph.follow',
                     subject: followingDid,
                     createdAt: new Date().toISOString()
                 }
             })
         });
-        // Update database
-        await this.db.query(`INSERT INTO follows (follower_fid, following_fid, timestamp, active)
+        // Update database using DIDs directly
+        await this.db.query(`INSERT INTO follows (follower_did, following_did, timestamp, active)
        VALUES ($1, $2, $3, true)
-       ON CONFLICT (follower_fid, following_fid) DO UPDATE SET active = true`, [followerFid, followingFid, Math.floor(Date.now() / 1000)]);
+       ON CONFLICT (follower_did, following_did) DO UPDATE SET active = true`, [followerDid, followingDid, Math.floor(Date.now() / 1000)]);
         // Invalidate cache
         if (this.redis) {
             await this.redis.del(`follows:${followerDid}`);
         }
     }
-    async deleteFollow(followerFid: number, followingFid: number) {
+    async deleteFollow(followerDid: string, followingDid: string) {
         await this.db.query(`UPDATE follows SET active = false
-       WHERE follower_fid = $1 AND following_fid = $2`, [followerFid, followingFid]);
+       WHERE follower_did = $1 AND following_did = $2`, [followerDid, followingDid]);
         // Invalidate cache
         if (this.redis) {
-            await this.redis.del(`follows:${followerFid}`);
+            await this.redis.del(`follows:${followerDid}`);
         }
     }
     async createReaction(fid: number, targetHash: string, type: 'like' | 'repost' | 'quote'): Promise<Reaction> {
@@ -415,9 +461,9 @@ export class AggregationLayer {
             // Count new follows (people who followed you in last 7 days)
             const followResult = await this.db.query(`SELECT COUNT(*) as count
          FROM follows
-         WHERE following_fid = $1
+         WHERE following_did = $1
            AND active = true
-           AND timestamp > $2`, [fid, sevenDaysAgo]);
+           AND timestamp > $2`, [did, sevenDaysAgo]);
             const followCount = parseInt(followResult.rows[0]?.count || '0');
             // For now, return sum of reactions and follows
             // In the future, we could track read/unread status

@@ -103,6 +103,25 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
     }
   });
 
+  // Get posts by user DID
+  app.get('/api/v1/users/:did/posts', async (req, res) => {
+    try {
+      const { did } = req.params;
+      const { limit = 50, cursor } = req.query;
+
+      // Validate did format
+      if (!did || !did.startsWith('did:daemon:')) {
+        return res.status(400).json({ error: 'Invalid did format. Expected did:daemon:${fid}' });
+      }
+
+      const fid = didToFid(did);
+      const posts = await gatewayService.getPostsByUser(did, parseInt(limit as string) || 50, cursor as string | undefined);
+      res.json({ posts, cursor: posts.length > 0 ? posts[posts.length - 1].hash : undefined });
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
   // Profile endpoints (public read, protected write)
   // Accept did in URL: /api/v1/profile/:did
   app.get('/api/v1/profile/:did', async (req, res) => {

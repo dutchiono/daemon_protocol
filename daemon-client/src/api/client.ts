@@ -148,3 +148,54 @@ export async function getUnreadNotificationCount(did: string) {
   }
 }
 
+export async function followUser(followerDid: string, followingDid: string) {
+  try {
+    const response = await axios.post(`${API_URL}/api/v1/follow`, {
+      followerDid,
+      followingDid
+    }, {
+      timeout: 10000
+    });
+    return response.data;
+  } catch (error: any) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
+      throw new Error('Network error: Could not connect to server. Please check if the server is running.');
+    }
+    throw error;
+  }
+}
+
+export async function unfollowUser(followerDid: string, followingDid: string) {
+  try {
+    const response = await axios.post(`${API_URL}/api/v1/unfollow`, {
+      followerDid,
+      followingDid
+    }, {
+      timeout: 10000
+    });
+    return response.data;
+  } catch (error: any) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
+      throw new Error('Network error: Could not connect to server. Please check if the server is running.');
+    }
+    throw error;
+  }
+}
+
+export async function getUserPosts(did: string, limit: number = 50, cursor?: string) {
+  try {
+    const params: any = { limit };
+    if (cursor) params.cursor = cursor;
+    const response = await axios.get(`${API_URL}/api/v1/users/${encodeURIComponent(did)}/posts`, {
+      params,
+      timeout: 10000
+    });
+    return response.data;
+  } catch (error: any) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
+      throw new Error('Network error: Could not connect to server. Please check if the server is running.');
+    }
+    throw error;
+  }
+}
+

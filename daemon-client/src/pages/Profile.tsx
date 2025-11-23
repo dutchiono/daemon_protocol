@@ -1,8 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useWallet } from '../wallet/WalletProvider';
-import { getProfile } from '../api/client';
-import { fidToDid } from '../utils/did';
+import { getProfile, getUserPosts, followUser, unfollowUser } from '../api/client';
+import { fidToDid, didToFid } from '../utils/did';
 import Post from '../components/Post';
 import './Profile.css';
 
@@ -10,11 +10,13 @@ export default function Profile() {
   const { fid: urlFid } = useParams<{ fid: string }>();
   const { did } = useWallet();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // Use URL fid if provided, otherwise use current user's did
-  const profileFid = urlFid ? parseInt(urlFid) : (did || null);
+  const profileFid = urlFid ? parseInt(urlFid) : (did ? didToFid(did) : null);
   const profileDid = profileFid ? fidToDid(profileFid) : null;
   const isOwnProfile = !urlFid && did !== null;
+  const currentUserDid = did ? `did:daemon:${did}` : null;
 
   const { data: profile, isLoading: profileLoading, error: profileError } = useQuery({
     queryKey: ['profile', profileDid],
@@ -23,15 +25,61 @@ export default function Profile() {
     retry: false
   });
 
-  // TODO: Get user's posts
-  const { data: posts, isLoading: postsLoading } = useQuery({
-    queryKey: ['profile-posts', profileFid],
-    queryFn: async () => {
-      // Placeholder - would fetch user's posts
-      return [];
-    },
-    enabled: profileFid !== null
+  // Get user's posts
+  const { data: postsData, isLoading: postsLoading } = useQuery({
+    queryKey: ['profile-posts', profileDid],
+    queryFn: () => getUserPosts(profileDid!, 50),
+    enabled: profileDid !== null,
+    retry: false
   });
+
+  const posts = postsData?.posts || [];
+
+  // Check if current user is following this profile
+  const { data: isFollowing } = useQuery({
+    queryKey: ['follow-status', currentUserDid, profileDid],
+    queryFn: async () => {
+      if (!currentUserDid || !profileDid || isOwnProfile) return false;
+      // For now, we'll check by getting the current user's follows and checking if profileDid is in it
+      // This is a simple implementation - in production you'd want a dedicated endpoint
+      try {
+        const response = await fetch(`${import.meta.env.VITE_GATEWAY_URL || 'http://localhost:4003'}/api/v1/profile/${encodeURIComponent(currentUserDid)}/follows`);
+        if (response.ok) {
+          const data = await response.json();
+          return data.follows?.some((f: any) => f.did === profileDid) || false;
+        }
+      } catch (error) {
+        console.error('Error checking follow status:', error);
+      }
+      return false;
+    },
+    enabled: !!currentUserDid && !!profileDid && !isOwnProfile,
+    retry: false
+  });
+
+  const followMutation = useMutation({
+    mutationFn: () => followUser(currentUserDid!, profileDid!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['follow-status', currentUserDid, profileDid] });
+      queryClient.invalidateQueries({ queryKey: ['feed', currentUserDid] });
+    }
+  });
+
+  const unfollowMutation = useMutation({
+    mutationFn: () => unfollowUser(currentUserDid!, profileDid!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['follow-status', currentUserDid, profileDid] });
+      queryClient.invalidateQueries({ queryKey: ['feed', currentUserDid] });
+    }
+  });
+
+  const handleFollow = () => {
+    if (isFollowing) {
+      unfollowMutation.mutate();
+    } else {
+      followMutation.mutate();
+    }
+  };
 
   if (profileLoading) {
     return <div className="page-loading">Loading profile...</div>;
@@ -72,14 +120,35 @@ export default function Profile() {
             )}
           </div>
           <div className="profile-details">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
               <h2>{profile.displayName || `@${profile.username || profileFid}`}</h2>
-              {isOwnProfile && (
+              {isOwnProfile ? (
                 <button
                   onClick={() => navigate('/settings')}
                   style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', cursor: 'pointer' }}
                 >
                   Edit Profile
+                </button>
+              ) : currentUserDid && (
+                <button
+                  onClick={handleFollow}
+                  disabled={followMutation.isPending || unfollowMutation.isPending}
+                  style={{
+                    padding: '0.5rem 1.5rem',
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    backgroundColor: isFollowing ? '#333' : '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {followMutation.isPending || unfollowMutation.isPending
+                    ? '...'
+                    : isFollowing
+                    ? 'Following'
+                    : 'Follow'}
                 </button>
               )}
             </div>

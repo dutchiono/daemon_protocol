@@ -65,13 +65,6 @@ export default function Sidebar() {
           )}
         </button>
 
-        <button
-          className={`nav-item ${isActive('/channels') ? 'active' : ''}`}
-          onClick={() => navigate('/channels')}
-        >
-          <span className="nav-icon">💬</span>
-          <span className="nav-label">Channels</span>
-        </button>
 
         {did && (
           <button

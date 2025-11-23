@@ -103,20 +103,20 @@ function setupAPI(app: express.Application, pdsService: PDSService) {
       });
 
       // Route based on collection type
-      if (collection === 'app.bsky.graph.follow') {
+      if (collection === 'app.daemon.graph.follow') {
         // Handle follow operation
         console.log('[PDS] Creating follow record for repo:', repo);
         const result = await pdsService.createFollow(repo, record);
         console.log('[PDS] Follow record created successfully:', result.uri);
         res.json(result);
-      } else if (collection === 'app.bsky.feed.post') {
+      } else if (collection === 'app.daemon.feed.post') {
         // Handle post creation
         console.log('[PDS] Creating post record for repo:', repo);
         const result = await pdsService.createRecord(repo, collection, record);
         console.log('[PDS] Post record created successfully:', result.uri);
         res.json(result);
       } else {
-        // Handle other record types
+        // Handle other record types (including legacy app.bsky.* for backwards compatibility)
         console.log('[PDS] Creating record for collection:', collection);
         const result = await pdsService.createRecord(repo, collection, record);
         console.log('[PDS] Record created successfully:', result.uri);

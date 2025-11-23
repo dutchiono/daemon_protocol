@@ -118,6 +118,10 @@ export class HubService {
     return await this.db.getMessagesByFid(fid, limit, offset);
   }
 
+  async getMessagesByFids(fids: number[], limit: number): Promise<Message[]> {
+    return await this.db.getMessagesByFids(fids, limit);
+  }
+
   private async handleIncomingMessage(message: Message): Promise<void> {
     // Check if we already have this message
     const existing = await this.getMessage(message.hash);

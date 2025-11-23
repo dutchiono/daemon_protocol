@@ -159,6 +159,27 @@ function setupAPI(app: express.Application, hubService: HubService) {
     }
   });
 
+  // Get messages by multiple FIDs (batch endpoint)
+  app.get('/api/v1/messages/batch', async (req, res) => {
+    try {
+      const { fids, limit = 100 } = req.query;
+      if (!fids || typeof fids !== 'string') {
+        return res.status(400).json({ error: 'fids parameter is required (comma-separated)' });
+      }
+      const fidArray = fids.split(',').map(f => parseInt(f.trim())).filter(f => !isNaN(f) && f > 0);
+      if (fidArray.length === 0) {
+        return res.json({ messages: [], total: 0 });
+      }
+      const messages = await hubService.getMessagesByFids(
+        fidArray,
+        parseInt(limit as string)
+      );
+      res.json({ messages, total: messages.length });
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
   // Sync status
   app.get('/api/v1/sync/status', async (req, res) => {
     try {

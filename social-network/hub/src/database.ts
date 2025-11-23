@@ -154,6 +154,52 @@ export class Database {
     return messages;
   }
 
+  async getMessagesByFids(fids: number[], limit: number): Promise<Message[]> {
+    if (fids.length === 0) {
+      return [];
+    }
+
+    // Query messages from multiple FIDs
+    const placeholders = fids.map((_, i) => `$${i + 1}`).join(',');
+    const result = await this.pool.query(
+      `SELECT * FROM messages
+       WHERE fid IN (${placeholders}) AND deleted = false
+       ORDER BY timestamp DESC
+       LIMIT $${fids.length + 1}`,
+      [...fids, limit]
+    );
+
+    // Load embeds for each message
+    const messages: Message[] = [];
+    for (const row of result.rows) {
+      const embedsResult = await this.pool.query(
+        `SELECT * FROM message_embeds WHERE message_hash = $1`,
+        [row.hash]
+      );
+
+      messages.push({
+        hash: row.hash,
+        fid: parseInt(row.fid),
+        text: row.text,
+        messageType: row.message_type,
+        parentHash: row.parent_hash,
+        rootParentHash: row.root_parent_hash,
+        mentions: row.mentions || [],
+        mentionsPositions: row.mentions_positions || [],
+        timestamp: parseInt(row.timestamp),
+        deleted: row.deleted,
+        embeds: embedsResult.rows.map((e: any) => ({
+          type: e.embed_type,
+          url: e.url,
+          castHash: e.cast_hash,
+          metadata: e.metadata ? JSON.parse(e.metadata) : undefined
+        }))
+      });
+    }
+
+    return messages;
+  }
+
   async getLatestMessageTimestamp(): Promise<number> {
     const result = await this.pool.query(
       `SELECT MAX(timestamp) as max_timestamp FROM messages`

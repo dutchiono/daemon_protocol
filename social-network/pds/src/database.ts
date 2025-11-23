@@ -157,22 +157,20 @@ export class Database {
   }
 
   async createFollow(repo: string, follow: Follow): Promise<{ uri: string; cid: string }> {
-    const uri = `at://${repo}/app.bsky.graph.follow/${Date.now()}`;
+    const uri = `at://${repo}/app.daemon.graph.follow/${Date.now()}`;
     const cid = this.generateCID(follow);
 
     await this.pool.query(
       `INSERT INTO pds_records (uri, repo, collection, record_data, cid, created_at)
-       VALUES ($1, $2, 'app.bsky.graph.follow', $3, $4, NOW())`,
+       VALUES ($1, $2, 'app.daemon.graph.follow', $3, $4, NOW())`,
       [uri, repo, JSON.stringify(follow), cid]
     );
 
-    // Also update follows table
+    // Also update follows table using DIDs directly
     await this.pool.query(
-      `INSERT INTO follows (follower_fid, following_fid, timestamp, active)
-       VALUES ((SELECT fid FROM users WHERE address = $1),
-               (SELECT fid FROM users WHERE address = $2),
-               $3, true)
-       ON CONFLICT (follower_fid, following_fid) DO UPDATE SET active = true`,
+      `INSERT INTO follows (follower_did, following_did, timestamp, active)
+       VALUES ($1, $2, $3, true)
+       ON CONFLICT (follower_did, following_did) DO UPDATE SET active = true`,
       [repo, follow.subject, Math.floor(Date.now() / 1000)]
     );
 
@@ -181,7 +179,7 @@ export class Database {
 
   async getFollow(uri: string): Promise<Follow | null> {
     const result = await this.pool.query(
-      `SELECT * FROM pds_records WHERE uri = $1 AND collection = 'app.bsky.graph.follow'`,
+      `SELECT * FROM pds_records WHERE uri = $1 AND (collection = 'app.daemon.graph.follow' OR collection = 'app.bsky.graph.follow')`,
       [uri]
     );
 
@@ -193,7 +191,7 @@ export class Database {
   async exportUserData(did: string): Promise<any> {
     const user = await this.getUserByDID(did);
     const profile = await this.getProfile(did);
-    const records = await this.listRecords(did, 'app.bsky.feed.post', 1000);
+    const records = await this.listRecords(did, 'app.daemon.feed.post', 1000);
 
     return {
       user,

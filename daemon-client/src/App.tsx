@@ -5,7 +5,6 @@ import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import Feed from './pages/Feed';
 import Notifications from './pages/Notifications';
-import Channels from './pages/Channels';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import Compose from './pages/Compose';
@@ -26,7 +25,6 @@ function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/feed" element={<Feed />} />
               <Route path="/notifications" element={<Notifications />} />
-              <Route path="/channels" element={<Channels />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile/:fid" element={<Profile />} />
               <Route path="/compose" element={<Compose />} />

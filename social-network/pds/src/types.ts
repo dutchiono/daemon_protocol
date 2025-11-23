@@ -21,7 +21,7 @@ export interface Record {
 }
 
 export interface Follow {
-  $type: 'app.bsky.graph.follow';
+  $type: 'app.daemon.graph.follow';
   subject: string; // DID of followed user
   createdAt: string;
 }

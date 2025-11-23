@@ -33,12 +33,15 @@ export class GatewayService {
       // Convert did to fid for internal operations
       const fid = didToFid(did);
 
-      // Get user's follows
-      const follows = await this.aggregationLayer.getFollows(fid);
+      // Get user's follows using DID
+      const follows = await this.aggregationLayer.getFollows(did);
 
-      // Get posts from followed users
+      // Always include your own FID in the list so you see your own posts
+      const fidsToQuery = [...new Set([fid, ...follows])];
+
+      // Get posts from followed users AND yourself
       const posts = await this.aggregationLayer.getPostsFromUsers(
-        follows,
+        fidsToQuery,
         type,
         limit,
         cursor
@@ -80,6 +83,14 @@ export class GatewayService {
     return await this.aggregationLayer.getPost(hash, userDid);
   }
 
+  async getPostsByUser(did: string, limit: number, cursor?: string): Promise<Post[]> {
+    const fid = didToFid(did);
+    // Get posts from this specific user
+    const posts = await this.aggregationLayer.getPostsFromUsers([fid], 'chronological', limit, cursor);
+    // Enrich with votes if needed
+    return await this.aggregationLayer.enrichPostsWithVotes(posts, did);
+  }
+
   async getProfile(did: string): Promise<Profile | null> {
     return await this.aggregationLayer.getProfile(did);
   }
@@ -105,9 +116,7 @@ export class GatewayService {
   }
 
   async unfollow(followerDid: string, followingDid: string): Promise<{ success: boolean }> {
-    const followerFid = didToFid(followerDid);
-    const followingFid = didToFid(followingDid);
-    await this.aggregationLayer.deleteFollow(followerFid, followingFid);
+    await this.aggregationLayer.deleteFollow(followerDid, followingDid);
     return { success: true };
   }
 

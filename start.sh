@@ -92,6 +92,9 @@ else
   run_migration "$(pwd)/backend/db/migrations/add-votes-table.sql"
 fi
 
+# Run follows DID unique constraint migration
+run_migration "backend/db/migrations/add-follows-did-unique.sql"
+
 echo "   ✅ Migration check complete"
 echo ""
 
