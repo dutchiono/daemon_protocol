@@ -12,6 +12,17 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+# Try to load .env file from common locations
+if [ -f ".env" ]; then
+    set -a
+    source .env
+    set +a
+elif [ -f "../.env" ]; then
+    set -a
+    source ../.env
+    set +a
+fi
+
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}Replies, Recasts & Quote Casts Check${NC}"
 echo -e "${BLUE}========================================${NC}"
@@ -21,6 +32,7 @@ echo ""
 if [ -z "$DATABASE_URL" ]; then
     echo -e "${RED}ERROR: DATABASE_URL environment variable is not set${NC}"
     echo "Set it like: export DATABASE_URL='postgresql://user:pass@host:port/dbname'"
+    echo "Or add it to .env file in the project root"
     exit 1
 fi
 
