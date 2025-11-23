@@ -520,43 +520,83 @@ export class AggregationLayer {
     async getReplies(postHash: string) {
         const replies: any[] = [];
 
-        // Query PDS for all posts with this parentHash
-        // We need to query all users' PDS instances to find replies
-        // For now, query the first PDS and search across all repos
+        // Extract DID from postHash (AT Protocol URI format: at://did:daemon:1/app.daemon.feed.post/...)
+        let postAuthorDid: string | null = null;
+        if (postHash.startsWith('at://')) {
+            const match = postHash.match(/^at:\/\/(did:daemon:\d+)\//);
+            if (match) {
+                postAuthorDid = match[1];
+            }
+        }
+
+        // Query PDS for replies
         if (this.pdsEndpoints && this.pdsEndpoints.length > 0) {
             const userPds = this.pdsEndpoints[0];
 
             try {
-                // Query PDS for all posts - we'll filter by parentHash
-                // Since we can't query by parentHash directly, we'll need to get all posts and filter
-                // For efficiency, we could query specific users, but for now get a larger set
-                const response = await fetch(`${userPds}/xrpc/com.atproto.repo.listRecords?collection=app.daemon.feed.post&limit=500`);
-                if (response.ok) {
-                    const data: any = await response.json();
-                    if (data.records && Array.isArray(data.records)) {
-                        for (const record of data.records) {
-                            const recordData = record.value || record;
-                            if (recordData && recordData.text) {
-                                // Extract parentHash from reply data
-                                const parentHash = recordData.reply?.parent?.uri || recordData.reply?.root?.uri || undefined;
+                // First, query the post author's repo (replies might be stored there)
+                // But actually, replies are stored in the replier's repo, not the post author's
+                // So we need to query all known users' repos
 
-                                // If this post is a reply to the target post
-                                if (parentHash === postHash) {
-                                    const hash = record.uri || `at://${recordData.did || 'unknown'}/app.daemon.feed.post/${new Date(recordData.createdAt).getTime()}`;
-                                    const did = recordData.did || hash.split('/')[2]?.replace('did:', '') || 'unknown';
+                // Get list of DIDs who might have replied (from database or from recent posts)
+                // For now, let's query all users who have created posts recently
+                const knownDids = new Set<string>();
+                if (postAuthorDid) {
+                    knownDids.add(postAuthorDid);
+                }
 
-                                    replies.push({
-                                        hash: hash,
-                                        did: did,
-                                        text: recordData.text,
-                                        timestamp: new Date(recordData.createdAt).getTime() / 1000,
-                                        messageType: 'reply',
-                                        parentHash: parentHash,
-                                        embeds: recordData.embed ? [recordData.embed] : []
-                                    });
+                // Query database to find DIDs who have created messages (potential repliers)
+                if (this.db) {
+                    try {
+                        const didsResult = await this.db.query(`SELECT DISTINCT did FROM messages WHERE did IS NOT NULL LIMIT 50`);
+                        for (const row of didsResult.rows) {
+                            if (row.did) {
+                                knownDids.add(row.did);
+                            }
+                        }
+                    } catch (error) {
+                        console.error(`[AggregationLayer] Failed to get DIDs from database:`, error);
+                    }
+                }
+
+                // Query each known user's repo for replies
+                for (const did of knownDids) {
+                    try {
+                        const response = await fetch(`${userPds}/xrpc/com.atproto.repo.listRecords?repo=${did}&collection=app.daemon.feed.post&limit=500`);
+                        if (response.ok) {
+                            const data: any = await response.json();
+                            if (data.records && Array.isArray(data.records)) {
+                                for (const record of data.records) {
+                                    const recordData = record.value || record;
+                                    if (recordData && recordData.text) {
+                                        // Extract parentHash from reply data
+                                        const parentHash = recordData.reply?.parent?.uri || recordData.reply?.root?.uri || undefined;
+
+                                        // If this post is a reply to the target post
+                                        if (parentHash === postHash) {
+                                            const hash = record.uri;
+                                            // Extract DID from URI if not already set
+                                            const replyDid = did || (hash.match(/^at:\/\/(did:daemon:\d+)\//)?.[1]) || 'unknown';
+
+                                            // Avoid duplicates
+                                            if (!replies.find(r => r.hash === hash)) {
+                                                replies.push({
+                                                    hash: hash,
+                                                    did: replyDid,
+                                                    text: recordData.text,
+                                                    timestamp: new Date(recordData.createdAt).getTime() / 1000,
+                                                    messageType: 'reply',
+                                                    parentHash: parentHash,
+                                                    embeds: recordData.embed ? [recordData.embed] : []
+                                                });
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
+                    } catch (error) {
+                        console.error(`[AggregationLayer] Failed to query PDS repo for ${did}:`, error);
                     }
                 }
             } catch (error) {

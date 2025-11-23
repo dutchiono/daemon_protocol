@@ -82,36 +82,61 @@ echo ""
 
 # Extract DID from post hash if it's an AT Protocol URI
 if [[ "$POST_HASH" == at://* ]]; then
-    DID=$(echo "$POST_HASH" | sed 's|at://||' | cut -d'/' -f1)
-    echo -e "Checking PDS for DID: ${GREEN}$DID${NC}"
+    POST_AUTHOR_DID=$(echo "$POST_HASH" | sed 's|at://||' | cut -d'/' -f1)
+    echo -e "Post author DID: ${GREEN}$POST_AUTHOR_DID${NC}"
 
     # Check if PDS is responding
     if curl -s "$PDS_URL/health" > /dev/null 2>&1; then
         echo -e "${GREEN}PDS is responding${NC}"
         echo ""
-        echo "Fetching records from PDS..."
-        PDS_RECORDS=$(curl -s "$PDS_URL/xrpc/com.atproto.repo.listRecords?repo=$DID&collection=app.daemon.feed.post&limit=100" 2>/dev/null || echo '{"records":[]}')
 
-        # Count replies
-        REPLY_RECORDS=$(echo "$PDS_RECORDS" | jq -r '.records[] | select(.value.reply != null) | .uri' 2>/dev/null | wc -l || echo "0")
-        echo -e "Total reply records in PDS: ${GREEN}$REPLY_RECORDS${NC}"
+        # Get all known DIDs from database (like getReplies does)
+        echo "Getting known DIDs from database..."
+        KNOWN_DIDS=$(psql -U "$DB_USER" -d "$DB_NAME" -tAc "SELECT DISTINCT did FROM messages WHERE did IS NOT NULL LIMIT 50;" 2>/dev/null || echo "")
 
-        if [ "$REPLY_RECORDS" -gt 0 ]; then
-            echo ""
-            echo -e "${GREEN}Reply records in PDS:${NC}"
-            echo "$PDS_RECORDS" | jq -r '.records[] | select(.value.reply != null) | {uri: .uri, text: .value.text, parent: .value.reply.parent.uri, root: .value.reply.root.uri}' 2>/dev/null || echo "Could not parse PDS response"
+        # Add post author DID if not in list
+        if [ -n "$POST_AUTHOR_DID" ]; then
+            KNOWN_DIDS="$POST_AUTHOR_DID"$'\n'"$KNOWN_DIDS"
         fi
 
-        # Check for replies to specific post
+        # Remove duplicates and empty lines
+        KNOWN_DIDS=$(echo "$KNOWN_DIDS" | grep -v '^$' | sort -u)
+        DID_COUNT=$(echo "$KNOWN_DIDS" | wc -l)
+        echo -e "Found ${GREEN}$DID_COUNT${NC} known DIDs to check"
+
+        TOTAL_REPLY_RECORDS=0
+        REPLIES_TO_POST_PDS=0
+        ALL_REPLIES=""
+
+        # Check each DID's repo
+        for DID in $KNOWN_DIDS; do
+            if [ -z "$DID" ]; then continue; fi
+            echo "  Checking repo: $DID"
+            PDS_RECORDS=$(curl -s "$PDS_URL/xrpc/com.atproto.repo.listRecords?repo=$DID&collection=app.daemon.feed.post&limit=500" 2>/dev/null || echo '{"records":[]}')
+
+            # Count replies in this repo
+            REPLY_COUNT=$(echo "$PDS_RECORDS" | jq -r '.records[] | select(.value.reply != null) | .uri' 2>/dev/null | wc -l || echo "0")
+            if [ "$REPLY_COUNT" -gt 0 ]; then
+                TOTAL_REPLY_RECORDS=$((TOTAL_REPLY_RECORDS + REPLY_COUNT))
+
+                # Check for replies to specific post
+                REPLIES_TO_THIS_POST=$(echo "$PDS_RECORDS" | jq -r --arg post "$POST_HASH" '.records[] | select(.value.reply != null and (.value.reply.parent.uri == $post or .value.reply.root.uri == $post)) | .uri' 2>/dev/null | wc -l || echo "0")
+                if [ "$REPLIES_TO_THIS_POST" -gt 0 ]; then
+                    REPLIES_TO_POST_PDS=$((REPLIES_TO_POST_PDS + REPLIES_TO_THIS_POST))
+                    REPLIES_FOUND=$(echo "$PDS_RECORDS" | jq -r --arg post "$POST_HASH" '.records[] | select(.value.reply != null and (.value.reply.parent.uri == $post or .value.reply.root.uri == $post)) | {uri: .uri, text: .value.text, parent: .value.reply.parent.uri}' 2>/dev/null || echo "")
+                    ALL_REPLIES="$ALL_REPLIES"$'\n'"$REPLIES_FOUND"
+                fi
+            fi
+        done
+
         echo ""
-        echo "Checking for replies to post: $POST_HASH"
-        REPLIES_TO_POST_PDS=$(echo "$PDS_RECORDS" | jq -r --arg post "$POST_HASH" '.records[] | select(.value.reply != null and (.value.reply.parent.uri == $post or .value.reply.root.uri == $post)) | .uri' 2>/dev/null | wc -l || echo "0")
+        echo -e "Total reply records found across all repos: ${GREEN}$TOTAL_REPLY_RECORDS${NC}"
         echo -e "Replies to this post in PDS: ${GREEN}$REPLIES_TO_POST_PDS${NC}"
 
         if [ "$REPLIES_TO_POST_PDS" -gt 0 ]; then
             echo ""
             echo -e "${GREEN}Replies found in PDS:${NC}"
-            echo "$PDS_RECORDS" | jq -r --arg post "$POST_HASH" '.records[] | select(.value.reply != null and (.value.reply.parent.uri == $post or .value.reply.root.uri == $post)) | {uri: .uri, text: .value.text, parent: .value.reply.parent.uri}' 2>/dev/null || echo "Could not parse PDS response"
+            echo "$ALL_REPLIES" | jq -s '.' 2>/dev/null || echo "$ALL_REPLIES"
         fi
     else
         echo -e "${RED}PDS is not responding at $PDS_URL${NC}"
@@ -157,12 +182,16 @@ echo ""
 
 # Check PM2 logs if available
 if command -v pm2 &> /dev/null; then
-    echo "Recent Gateway logs (last 30 lines with 'reply' or 'parent'):"
-    pm2 logs daemon-gateway --lines 100 --nostream 2>/dev/null | grep -i "reply\|parent" | tail -20 || echo "No reply-related logs found"
+    echo "Recent Gateway logs (last 30 lines with 'reply' or 'parent' or 'getReplies'):"
+    pm2 logs daemon-gateway --lines 100 --nostream 2>/dev/null | grep -i "reply\|parent\|getReplies\|query PDS repo" | tail -20 || echo "No reply-related logs found"
 
     echo ""
     echo "Recent POST requests to /api/v1/posts:"
     pm2 logs daemon-gateway --lines 100 --nostream 2>/dev/null | grep "POST /api/v1/posts" | tail -10 || echo "No POST requests found"
+
+    echo ""
+    echo "Checking for PDS repo queries (should see queries to multiple DIDs):"
+    pm2 logs daemon-gateway --lines 200 --nostream 2>/dev/null | grep -i "query PDS repo\|Failed to query PDS repo" | tail -10 || echo "No PDS repo queries found"
 else
     echo "PM2 not available, skipping log check"
 fi
