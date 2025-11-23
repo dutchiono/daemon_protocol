@@ -276,9 +276,14 @@ export class AggregationLayer {
 
     if (userCheck.rows.length === 0) {
       // Create user if it doesn't exist
+      // Use a placeholder address since we don't have wallet address in this context
+      // The address will be updated when the user connects their wallet
+      const placeholderAddress = `0x${'0'.repeat(40)}`; // 0x0000...0000
       await this.db.query(
-        `INSERT INTO users (fid, created_at) VALUES ($1, NOW()) ON CONFLICT (fid) DO NOTHING`,
-        [fid]
+        `INSERT INTO users (fid, address, created_at) 
+         VALUES ($1, $2, NOW()) 
+         ON CONFLICT (fid) DO NOTHING`,
+        [fid, placeholderAddress]
       );
     }
 
