@@ -24,8 +24,10 @@ export default function Post({ post }: PostProps) {
 
   const handleLike = async () => {
     if (!did) return;
+    const didString = fidToDid(did);
+    if (!didString) return;
     try {
-      await likePost(fidToDid(did), post.hash);
+      await likePost(didString, post.hash);
       setLiked(!liked);
     } catch (error) {
       console.error('Failed to like post:', error);
@@ -34,8 +36,10 @@ export default function Post({ post }: PostProps) {
 
   const handleRepost = async () => {
     if (!did) return;
+    const didString = fidToDid(did);
+    if (!didString) return;
     try {
-      await repostPost(fidToDid(did), post.hash);
+      await repostPost(didString, post.hash);
       setReposted(!reposted);
     } catch (error) {
       console.error('Failed to repost:', error);
