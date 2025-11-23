@@ -447,10 +447,15 @@ export class AggregationLayer {
     const userPds = await this.getUserPDS(followerFid);
 
     if (!userPds) {
-      throw new Error('User PDS not found');
+      throw new Error('User PDS not found. Please ensure PDS_ENDPOINTS is configured.');
     }
 
-    await fetch(`${userPds}/xrpc/com.atproto.repo.createRecord`, {
+    // If userPds is relative (starts with /), we need to construct full URL
+    const pdsEndpoint = userPds.startsWith('/') 
+      ? `http://localhost:4003${userPds}` // Gateway is on 4003, Nginx proxies /xrpc/ to PDS
+      : userPds;
+
+    await fetch(`${pdsEndpoint}/xrpc/com.atproto.repo.createRecord`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
