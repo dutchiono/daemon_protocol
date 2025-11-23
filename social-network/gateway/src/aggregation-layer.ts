@@ -138,12 +138,8 @@ export class AggregationLayer {
     }
 
     // Create post on PDS
-    // If userPds is relative (starts with /), we need to construct full URL
-    const pdsEndpoint = userPds.startsWith('/') 
-      ? `http://localhost:4003${userPds}` // Gateway is on 4003, Nginx proxies /xrpc/ to PDS
-      : userPds;
-    
-    const response = await fetch(`${pdsEndpoint}/xrpc/com.atproto.repo.createRecord`, {
+    // Gateway makes server-side requests directly to PDS
+    const response = await fetch(`${userPds}/xrpc/com.atproto.repo.createRecord`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -450,12 +446,8 @@ export class AggregationLayer {
       throw new Error('User PDS not found. Please ensure PDS_ENDPOINTS is configured.');
     }
 
-    // If userPds is relative (starts with /), we need to construct full URL
-    const pdsEndpoint = userPds.startsWith('/') 
-      ? `http://localhost:4003${userPds}` // Gateway is on 4003, Nginx proxies /xrpc/ to PDS
-      : userPds;
-
-    await fetch(`${pdsEndpoint}/xrpc/com.atproto.repo.createRecord`, {
+    // Gateway makes server-side requests directly to PDS
+    await fetch(`${userPds}/xrpc/com.atproto.repo.createRecord`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -560,16 +552,9 @@ export class AggregationLayer {
       return null;
     }
     
-    // In production (when pdsEndpoints contains localhost), use relative URL via Nginx
-    const pdsUrl = this.pdsEndpoints[0];
-    if (pdsUrl.includes('localhost') || pdsUrl.includes('127.0.0.1')) {
-      // Gateway is behind Nginx, use relative URL
-      // Nginx will proxy /xrpc/ to PDS
-      return '/xrpc';
-    }
-    
-    // Otherwise use the configured PDS endpoint
-    return pdsUrl;
+    // Gateway makes server-side requests, so use direct PDS URL
+    // Nginx proxy is only for client-side requests
+    return this.pdsEndpoints[0];
   }
 
   private deduplicatePosts(posts: Post[]): Post[] {
