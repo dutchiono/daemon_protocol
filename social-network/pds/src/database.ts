@@ -4,7 +4,7 @@
  */
 
 import pg from 'pg';
-import type { Profile, Record, Follow } from './types.js';
+import type { Profile, Record, Follow, RecordWithMetadata } from './types.js';
 
 const { Pool } = pg;
 
@@ -134,7 +134,7 @@ export class Database {
     collection: string,
     limit: number,
     cursor?: string
-  ): Promise<{ records: Record[]; cursor?: string }> {
+  ): Promise<{ records: RecordWithMetadata[]; cursor?: string }> {
     let query = `SELECT * FROM pds_records
                  WHERE repo = $1 AND collection = $2
                  ORDER BY created_at DESC

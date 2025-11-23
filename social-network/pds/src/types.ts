@@ -26,3 +26,10 @@ export interface Follow {
   createdAt: string;
 }
 
+// AT Protocol format for listRecords response
+export interface RecordWithMetadata {
+  uri: string;
+  value: Record;
+  cid: string;
+}
+

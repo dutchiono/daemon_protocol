@@ -9,7 +9,7 @@ import { logger } from './logger.js';
 import type { Config } from './config.js';
 import { Database } from './database.js';
 import { ReplicationEngine } from './replication-engine.js';
-import type { Follow, Profile, Record } from './types.js';
+import type { Follow, Profile, Record, RecordWithMetadata } from './types.js';
 
 export class PDSService {
   private db: Database;
@@ -176,7 +176,7 @@ export class PDSService {
     collection: string,
     limit: number,
     cursor?: string
-  ): Promise<{ records: Record[]; cursor?: string }> {
+  ): Promise<{ records: RecordWithMetadata[]; cursor?: string }> {
     return await this.db.listRecords(repo, collection, limit, cursor);
   }
 
