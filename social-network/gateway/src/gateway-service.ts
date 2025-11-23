@@ -158,6 +158,14 @@ export class GatewayService {
     return await this.aggregationLayer.getUnreadNotificationCount(did);
   }
 
+  async getReactions(postHash: string, did: string): Promise<{ liked: boolean; reposted: boolean }> {
+    return await this.aggregationLayer.getReactions(postHash, did);
+  }
+
+  async getNotifications(did: string): Promise<{ notifications: any[] }> {
+    return await this.aggregationLayer.getNotifications(did);
+  }
+
   private async rankPostsAlgorithmically(posts: Post[], did: string, feedType: string = 'hot'): Promise<Post[]> {
     const now = Date.now() / 1000;
 

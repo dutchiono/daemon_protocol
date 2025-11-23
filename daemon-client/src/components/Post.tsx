@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { likePost, repostPost } from '../api/client';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { likePost, repostPost, createPost, getReactions, getFeed } from '../api/client';
 import { useWallet } from '../wallet/WalletProvider';
 import PostVoteClient from './post-vote/PostVoteClient';
-import CommentsSection from './CommentsSection';
+import RepliesSection from './RepliesSection';
 import './Post.css';
 
 interface PostData {
@@ -21,6 +22,9 @@ interface PostData {
   signingKey?: string; // Ed25519 public key
   verified?: boolean; // Computed: signature && signingKey
   username?: string; // Username from profile
+  liked?: boolean; // Whether current user liked this
+  reposted?: boolean; // Whether current user reposted this
+  replyCount?: number; // Number of replies
 }
 
 interface PostProps {
@@ -29,29 +33,85 @@ interface PostProps {
 
 export default function Post({ post }: PostProps) {
   const { did } = useWallet();
-  const [liked, setLiked] = useState(false);
-  const [reposted, setReposted] = useState(false);
-  const [showComments, setShowComments] = useState(false);
+  const queryClient = useQueryClient();
+  const [showReplies, setShowReplies] = useState(false);
+  const [showReplyInput, setShowReplyInput] = useState(false);
+  const [replyText, setReplyText] = useState('');
 
-  const handleLike = async () => {
-    if (!did) return;
-    try {
-      await likePost(did, post.hash);
-      setLiked(!liked);
-    } catch (error) {
+  // Fetch reaction state for this post
+  const { data: reactions } = useQuery({
+    queryKey: ['reactions', post.hash, did],
+    queryFn: () => getReactions(post.hash, did),
+    enabled: !!did && !!post.hash,
+  });
+
+  const liked = reactions?.liked ?? post.liked ?? false;
+  const reposted = reactions?.reposted ?? post.reposted ?? false;
+
+  // Fetch reply count
+  const { data: replyCount } = useQuery({
+    queryKey: ['replyCount', post.hash],
+    queryFn: async () => {
+      try {
+        const feedData = await getFeed(null, 'new', 200);
+        const allPosts = feedData.posts || [];
+        const replies = allPosts.filter((p: PostData) => p.parentHash === post.hash);
+        return replies.length;
+      } catch {
+        return 0;
+      }
+    },
+    enabled: !!post.hash && !post.parentHash,
+  });
+
+  const { mutate: submitReply, isPending: isSubmittingReply } = useMutation({
+    mutationFn: async (text: string) => {
+      if (!did) throw new Error('Wallet not connected');
+      if (!text.trim()) throw new Error('Reply cannot be empty');
+      return await createPost(did, text, post.hash);
+    },
+    onSuccess: () => {
+      setReplyText('');
+      setShowReplyInput(false);
+      queryClient.invalidateQueries({ queryKey: ['replyCount', post.hash] });
+      queryClient.invalidateQueries({ queryKey: ['replies', post.hash] });
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+    },
+    onError: (error) => {
+      console.error('Error submitting reply:', error);
+      alert('Failed to post reply. Please try again.');
+    },
+  });
+
+  const { mutate: handleLike, isPending: isLiking } = useMutation({
+    mutationFn: async () => {
+      if (!did) throw new Error('Wallet not connected');
+      return await likePost(did, post.hash);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reactions', post.hash, did] });
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+    },
+    onError: (error) => {
       console.error('Failed to like post:', error);
-    }
-  };
+      alert('Failed to like post. Please try again.');
+    },
+  });
 
-  const handleRepost = async () => {
-    if (!did) return;
-    try {
-      await repostPost(did, post.hash);
-      setReposted(!reposted);
-    } catch (error) {
+  const { mutate: handleRepost, isPending: isReposting } = useMutation({
+    mutationFn: async () => {
+      if (!did) throw new Error('Wallet not connected');
+      return await repostPost(did, post.hash);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reactions', post.hash, did] });
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+    },
+    onError: (error) => {
       console.error('Failed to repost:', error);
-    }
-  };
+      alert('Failed to repost. Please try again.');
+    },
+  });
 
   const formatTimestamp = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
@@ -111,27 +171,77 @@ export default function Post({ post }: PostProps) {
           <div className="post-actions">
             <button
               className={`post-action ${liked ? 'liked' : ''}`}
-              onClick={handleLike}
+              onClick={() => handleLike()}
+              disabled={isLiking || !did}
             >
-              ♥ Like
+              ♥ {liked ? 'Liked' : 'Like'}
             </button>
             <button
               className={`post-action ${reposted ? 'reposted' : ''}`}
-              onClick={handleRepost}
+              onClick={() => handleRepost()}
+              disabled={isReposting || !did}
             >
-              ↻ Repost
+              ↻ {reposted ? 'Reposted' : 'Repost'}
             </button>
             <button
               className="post-action"
-              onClick={() => setShowComments(!showComments)}
+              onClick={() => {
+                if (!showReplyInput) {
+                  setShowReplyInput(true);
+                  setShowReplies(true);
+                } else {
+                  setShowReplyInput(false);
+                }
+              }}
+              disabled={!did}
             >
-              💬 {showComments ? 'Hide' : 'Reply'}
+              💬 {replyCount ? `${replyCount} ` : ''}Reply
             </button>
           </div>
         </div>
       </div>
-      {showComments && !post.parentHash && (
-        <CommentsSection postHash={post.hash} />
+
+      {/* Inline reply input */}
+      {showReplyInput && did && !post.parentHash && (
+        <div className="reply-input-section">
+          <textarea
+            className="reply-textarea"
+            placeholder="Write a reply..."
+            rows={3}
+            maxLength={1000}
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+          />
+          <div className="reply-actions">
+            <button
+              className="reply-cancel-button"
+              onClick={() => {
+                setShowReplyInput(false);
+                setReplyText('');
+              }}
+              disabled={isSubmittingReply}
+            >
+              Cancel
+            </button>
+            <button
+              className="reply-submit-button"
+              onClick={() => {
+                const text = replyText.trim();
+                if (text) {
+                  submitReply(text);
+                }
+              }}
+              disabled={isSubmittingReply || !replyText.trim()}
+            >
+              {isSubmittingReply ? 'Posting...' : 'Reply'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Replies section */}
+      {showReplies && !post.parentHash && (
+        <RepliesSection postHash={post.hash} />
       )}
     </div>
   );

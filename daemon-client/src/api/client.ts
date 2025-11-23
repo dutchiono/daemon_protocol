@@ -133,6 +133,44 @@ export async function voteComment(did: string, commentHash: string, voteType: 'U
   return response.data;
 }
 
+export async function voteReply(did: string, replyHash: string, voteType: 'UP' | 'DOWN') {
+  // Replies use the same endpoint as comments
+  return await voteComment(did, replyHash, voteType);
+}
+
+export async function getReactions(postHash: string, did?: string | null) {
+  try {
+    if (!did) {
+      return { liked: false, reposted: false };
+    }
+    const response = await axios.get(`${API_URL}/api/v1/posts/${postHash}/reactions`, {
+      params: { did },
+      timeout: 10000
+    });
+    return response.data;
+  } catch (error: any) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
+      return { liked: false, reposted: false };
+    }
+    return { liked: false, reposted: false };
+  }
+}
+
+export async function getNotifications(did: string) {
+  try {
+    const response = await axios.get(`${API_URL}/api/v1/notifications`, {
+      params: { did },
+      timeout: 10000
+    });
+    return response.data;
+  } catch (error: any) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
+      return { notifications: [] };
+    }
+    return { notifications: [] };
+  }
+}
+
 export async function getUnreadNotificationCount(did: string) {
   try {
     const response = await axios.get(`${API_URL}/api/v1/notifications/count`, {

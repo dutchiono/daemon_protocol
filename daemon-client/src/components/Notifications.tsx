@@ -1,11 +1,15 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { getNotifications } from '../api/client';
+import { useWallet } from '../wallet/WalletProvider';
 import './Notifications.css';
 
 interface Notification {
   id: string;
   type: 'like' | 'repost' | 'reply' | 'follow' | 'mention';
   from: {
-    fid: number;
+    did?: string;
+    fid?: number;
     username?: string;
   };
   post?: {
@@ -21,41 +25,26 @@ interface NotificationsProps {
 }
 
 export default function Notifications({ fid }: NotificationsProps) {
+  const { did } = useWallet();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
-  // Mock notifications - would come from API
-  const [notifications] = useState<Notification[]>([
-    {
-      id: '1',
-      type: 'like',
-      from: { fid: 123 },
-      post: { hash: '0x123', text: 'Check out this post!' },
-      timestamp: Date.now() - 3600000,
-      read: false
-    },
-    {
-      id: '2',
-      type: 'repost',
-      from: { fid: 456 },
-      post: { hash: '0x456', text: 'Amazing content!' },
-      timestamp: Date.now() - 7200000,
-      read: false
-    },
-    {
-      id: '3',
-      type: 'follow',
-      from: { fid: 789 },
-      timestamp: Date.now() - 10800000,
-      read: true
-    }
-  ]);
+  // Fetch real notifications from API
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['notifications', did],
+    queryFn: () => getNotifications(did!),
+    enabled: !!did,
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
+  const notifications: Notification[] = data?.notifications || [];
 
   const filteredNotifications = filter === 'unread'
     ? notifications.filter(n => !n.read)
     : notifications;
 
   const formatTimestamp = (timestamp: number) => {
-    const date = new Date(timestamp);
+    // Timestamp is in seconds, convert to milliseconds
+    const date = new Date(timestamp * 1000);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const minutes = Math.floor(diff / 60000);
@@ -81,17 +70,18 @@ export default function Notifications({ fid }: NotificationsProps) {
   };
 
   const getNotificationText = (notification: Notification) => {
+    const from = notification.from.username || notification.from.did || notification.from.fid || 'someone';
     switch (notification.type) {
       case 'like':
-        return `@${notification.from.fid} liked your post`;
+        return `${from} liked your post`;
       case 'repost':
-        return `@${notification.from.fid} reposted your post`;
+        return `${from} reposted your post`;
       case 'reply':
-        return `@${notification.from.fid} replied to your post`;
+        return `${from} replied to your post`;
       case 'follow':
-        return `@${notification.from.fid} started following you`;
+        return `${from} started following you`;
       case 'mention':
-        return `@${notification.from.fid} mentioned you`;
+        return `${from} mentioned you`;
       default:
         return 'New notification';
     }
@@ -118,7 +108,11 @@ export default function Notifications({ fid }: NotificationsProps) {
       </div>
 
       <div className="notifications-list">
-        {filteredNotifications.length === 0 ? (
+        {isLoading ? (
+          <div className="notifications-empty">Loading notifications...</div>
+        ) : error ? (
+          <div className="notifications-empty">Error loading notifications</div>
+        ) : filteredNotifications.length === 0 ? (
           <div className="notifications-empty">
             {filter === 'unread' ? 'No unread notifications' : 'No notifications yet'}
           </div>

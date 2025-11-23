@@ -124,3 +124,75 @@
   color: #ccc;
 }
 
+/* Reply input section */
+.reply-input-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #333;
+}
+
+.reply-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  background: #252525;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.95rem;
+  resize: vertical;
+  min-height: 80px;
+  margin-bottom: 0.75rem;
+}
+
+.reply-textarea:focus {
+  outline: none;
+  border-color: #555;
+}
+
+.reply-textarea::placeholder {
+  color: #666;
+}
+
+.reply-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.reply-cancel-button,
+.reply-submit-button {
+  padding: 0.5rem 1rem;
+  border: 1px solid #333;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.reply-cancel-button {
+  background: transparent;
+  color: #888;
+}
+
+.reply-cancel-button:hover {
+  background: #252525;
+  color: #fff;
+}
+
+.reply-submit-button {
+  background: #10b981;
+  color: #fff;
+  border-color: #10b981;
+}
+
+.reply-submit-button:hover:not(:disabled) {
+  background: #059669;
+  border-color: #059669;
+}
+
+.reply-submit-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+

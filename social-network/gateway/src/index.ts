@@ -297,6 +297,21 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
     }
   });
 
+  // Get reactions for a post
+  protectedRoutes.get('/api/v1/posts/:hash/reactions', async (req, res) => {
+    try {
+      const { hash } = req.params;
+      const { did } = req.query;
+      if (!did || typeof did !== 'string') {
+        return res.json({ liked: false, reposted: false });
+      }
+      const reactions = await gatewayService.getReactions(hash, did);
+      res.json(reactions);
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
   // Notifications endpoint (public - just a count)
   app.get('/api/v1/notifications/count', async (req, res) => {
     try {
@@ -309,6 +324,20 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
       }
       const count = await gatewayService.getUnreadNotificationCount(did);
       res.json({ count });
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  // Get notifications
+  protectedRoutes.get('/api/v1/notifications', async (req, res) => {
+    try {
+      const { did } = req.query;
+      if (!did || typeof did !== 'string') {
+        return res.json({ notifications: [] });
+      }
+      const notifications = await gatewayService.getNotifications(did);
+      res.json(notifications);
     } catch (error) {
       res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }

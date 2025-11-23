@@ -800,6 +800,112 @@ export class AggregationLayer {
         return profile;
     }
 
+    async getReactions(postHash: string, did: string): Promise<{ liked: boolean; reposted: boolean }> {
+        try {
+            const result = await this.db.query(`
+                SELECT reaction_type FROM reactions
+                WHERE did = $1 AND target_hash = $2 AND active = true
+            `, [did, postHash]);
+
+            const reactions = result.rows.map((row: any) => row.reaction_type);
+            return {
+                liked: reactions.includes('like'),
+                reposted: reactions.includes('repost')
+            };
+        } catch (error) {
+            console.error('Error getting reactions:', error);
+            return { liked: false, reposted: false };
+        }
+    }
+
+    async getNotifications(did: string): Promise<{ notifications: any[] }> {
+        try {
+            const sevenDaysAgo = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
+
+            // Get reactions on user's posts
+            const reactionsResult = await this.db.query(`
+                SELECT r.*, m.text as post_text, m.hash as post_hash, r.did as from_did
+                FROM reactions r
+                INNER JOIN messages m ON r.target_hash = m.hash
+                WHERE m.did = $1
+                  AND r.did != $1
+                  AND m.timestamp > $2
+                  AND r.active = true
+                ORDER BY r.timestamp DESC
+                LIMIT 50
+            `, [did, sevenDaysAgo]);
+
+            // Get new follows
+            const followsResult = await this.db.query(`
+                SELECT f.*, f.follower_did as from_did
+                FROM follows f
+                WHERE f.following_did = $1
+                  AND f.active = true
+                  AND f.timestamp > $2
+                ORDER BY f.timestamp DESC
+                LIMIT 50
+            `, [did, sevenDaysAgo]);
+
+            // Get replies to user's posts
+            const repliesResult = await this.db.query(`
+                SELECT m.*, m.did as from_did, parent.hash as post_hash, parent.text as post_text
+                FROM messages m
+                INNER JOIN messages parent ON m.parent_hash = parent.hash
+                WHERE parent.did = $1
+                  AND m.did != $1
+                  AND m.timestamp > $2
+                  AND m.deleted = false
+                ORDER BY m.timestamp DESC
+                LIMIT 50
+            `, [did, sevenDaysAgo]);
+
+            const notifications: any[] = [];
+
+            // Process reactions
+            reactionsResult.rows.forEach((row: any) => {
+                notifications.push({
+                    id: `reaction_${row.id}`,
+                    type: row.reaction_type === 'like' ? 'like' : row.reaction_type === 'repost' ? 'repost' : 'reaction',
+                    from: { did: row.from_did },
+                    post: { hash: row.post_hash, text: row.post_text },
+                    timestamp: parseInt(row.timestamp),
+                    read: false
+                });
+            });
+
+            // Process follows
+            followsResult.rows.forEach((row: any) => {
+                notifications.push({
+                    id: `follow_${row.id}`,
+                    type: 'follow',
+                    from: { did: row.from_did },
+                    timestamp: parseInt(row.timestamp),
+                    read: false
+                });
+            });
+
+            // Process replies
+            repliesResult.rows.forEach((row: any) => {
+                notifications.push({
+                    id: `reply_${row.hash}`,
+                    type: 'reply',
+                    from: { did: row.from_did },
+                    post: { hash: row.post_hash, text: row.post_text },
+                    timestamp: parseInt(row.timestamp),
+                    read: false
+                });
+            });
+
+            // Sort by timestamp (newest first)
+            notifications.sort((a, b) => b.timestamp - a.timestamp);
+
+            return { notifications: notifications.slice(0, 50) };
+        } catch (error) {
+            console.error('Error getting notifications:', error);
+            return { notifications: [] };
+        }
+    }
+
     deduplicatePosts(posts: any[]) {
         const seen = new Set();
         return posts.filter((post: any) => {
