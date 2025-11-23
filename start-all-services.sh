@@ -102,17 +102,37 @@ cd ~/daemon
 
 # Start Hub
 echo "   Starting Hub..."
-pm2 start social-network/hub/dist/index.js --name daemon-hub --update-env
+pm2 start social-network/hub/dist/index.js --name daemon-hub --update-env \
+  --env DATABASE_URL="$DATABASE_URL" \
+  --env HUB_PORT="$HUB_PORT" \
+  --env NODE_ID="$NODE_ID" \
+  --env RPC_URL="$RPC_URL" \
+  --env ID_REGISTRY_ADDRESS="$ID_REGISTRY_ADDRESS" \
+  --env KEY_REGISTRY_ADDRESS="$KEY_REGISTRY_ADDRESS" \
+  --env BOOTSTRAP_NODES="$BOOTSTRAP_NODES" \
+  --env ENABLE_DHT="$ENABLE_DHT"
 sleep 3
 
 # Start PDS
 echo "   Starting PDS..."
-pm2 start social-network/pds/dist/index.js --name daemon-pds --update-env
+pm2 start social-network/pds/dist/index.js --name daemon-pds --update-env \
+  --env DATABASE_URL="$DATABASE_URL" \
+  --env PDS_PORT="$PDS_PORT" \
+  --env PDS_ID="$PDS_ID" \
+  --env RPC_URL="$RPC_URL" \
+  --env ID_REGISTRY_ADDRESS="$ID_REGISTRY_ADDRESS"
 sleep 3
 
 # Start Gateway
 echo "   Starting Gateway..."
-pm2 start social-network/gateway/dist/index.js --name daemon-gateway --update-env
+pm2 start social-network/gateway/dist/index.js --name daemon-gateway --update-env \
+  --env DATABASE_URL="$DATABASE_URL" \
+  --env GATEWAY_PORT="$GATEWAY_PORT" \
+  --env GATEWAY_ID="$GATEWAY_ID" \
+  --env HUB_ENDPOINTS="$HUB_ENDPOINTS" \
+  --env PDS_ENDPOINTS="$PDS_ENDPOINTS" \
+  --env REDIS_URL="$REDIS_URL" \
+  --env X402_SERVICE_URL="$X402_SERVICE_URL"
 sleep 3
 
 echo ""
