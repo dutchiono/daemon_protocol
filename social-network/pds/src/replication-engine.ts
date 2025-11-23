@@ -46,7 +46,7 @@ export class ReplicationEngine {
 
   private async syncWithPeer(peerPds: string): Promise<void> {
     // Get our latest records (handle errors gracefully)
-    let ourLatest: Date | null = null;
+    let ourLatest: number | null = null;
     try {
       ourLatest = await this.db.getLatestRecordTimestamp();
     } catch (error) {

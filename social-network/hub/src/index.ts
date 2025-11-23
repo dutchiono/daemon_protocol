@@ -154,13 +154,30 @@ const config: Config = {
   chainId: parseInt(process.env.CHAIN_ID || '84532'), // Base Sepolia default
 };
 
-initializeHub(config).then(({ hubService }) => {
-  app.listen(PORT, () => {
-    console.log(`Hub server running on port ${PORT}`);
-    console.log(`Node ID: ${hubService.getNodeId()}`);
-  });
-}).catch((error) => {
-  console.error('Failed to initialize hub:', error);
+// Validate required config
+if (!config.databaseUrl || config.databaseUrl.trim() === '') {
+  console.error('ERROR: DATABASE_URL is required for Hub');
+  console.error('Please set DATABASE_URL environment variable');
   process.exit(1);
-});
+}
+
+// Initialize and start server
+(async () => {
+  try {
+    console.log('Initializing Hub...');
+    const { hubService } = await initializeHub(config);
+    
+    console.log('Hub initialized successfully, starting server...');
+    
+    app.listen(PORT, () => {
+      console.log(`Hub server running on port ${PORT}`);
+      console.log(`Node ID: ${hubService.getNodeId()}`);
+      console.log('Hub is ready to accept requests');
+    });
+  } catch (error) {
+    console.error('Failed to initialize hub:', error);
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
+    process.exit(1);
+  }
+})();
 
