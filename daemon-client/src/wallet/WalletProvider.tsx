@@ -4,7 +4,7 @@ import { getFIDFromAddress, registerFID } from '../contracts/identityRegistry';
 
 interface WalletContextType {
   address: string | null;
-  did: number | null; // Daemon ID (on-chain identity)
+  did: string | null; // Daemon DID (full format: did:daemon:${id})
   connect: () => Promise<void>;
   disconnect: () => void;
   isConnected: boolean;
@@ -14,14 +14,14 @@ interface WalletContextType {
 
 interface WalletProviderProps {
   children: ReactNode;
-  onDidChange?: (did: number | null) => void;
+  onDidChange?: (did: string | null) => void;
 }
 
 export const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export function WalletProvider({ children, onDidChange }: WalletProviderProps) {
   const [address, setAddress] = useState<string | null>(null);
-  const [did, setDid] = useState<number | null>(null); // Daemon ID
+  const [did, setDid] = useState<string | null>(null); // Daemon DID (full format: did:daemon:${id})
   const [isRegistering, setIsRegistering] = useState(false);
 
   const loadDID = async (walletAddress: string) => {
@@ -29,9 +29,11 @@ export function WalletProvider({ children, onDidChange }: WalletProviderProps) {
 
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
-      const did = await getFIDFromAddress(provider, walletAddress); // Contract still uses FID internally
-      setDid(did);
-      onDidChange?.(did);
+      const numericId = await getFIDFromAddress(provider, walletAddress); // Contract returns numeric ID
+      // Convert numeric ID to full DID format
+      const fullDid = numericId ? `did:daemon:${numericId}` : null;
+      setDid(fullDid);
+      onDidChange?.(fullDid);
     } catch (error) {
       console.error('Error loading Daemon ID:', error);
       setDid(null);
@@ -58,9 +60,11 @@ export function WalletProvider({ children, onDidChange }: WalletProviderProps) {
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
-      const newDid = await registerFID(signer); // Contract function still named registerFID
-      setDid(newDid);
-      onDidChange?.(newDid);
+      const numericId = await registerFID(signer); // Contract function returns numeric ID
+      // Convert numeric ID to full DID format
+      const fullDid = numericId ? `did:daemon:${numericId}` : null;
+      setDid(fullDid);
+      onDidChange?.(fullDid);
     } catch (error: any) {
       console.error('Failed to register Daemon ID:', error);
       if (error.message?.includes('Already registered')) {

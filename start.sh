@@ -124,8 +124,8 @@ if [ ! -f dist/index.js ]; then
   echo "   ❌ PDS build failed - dist/index.js not found"
   exit 1
 fi
-# Verify the critical database.js file has the correct INSERT
-if ! grep -q "INSERT INTO profiles (fid, did" dist/database.js; then
+# Verify the critical database.js file has the correct INSERT (using DID only, no FID)
+if ! grep -q "INSERT INTO profiles (did" dist/database.js; then
   echo "   ❌ PDS database.js missing did column in INSERT - build may be stale"
   echo "   Forcing rebuild..."
   rm -rf dist
