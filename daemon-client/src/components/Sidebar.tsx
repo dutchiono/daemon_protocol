@@ -1,7 +1,8 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useWallet } from '../wallet/WalletProvider';
-import { getUnreadNotificationCount } from '../api/client';
+import { getUnreadNotificationCount, getProfile } from '../api/client';
+import { Github } from 'lucide-react';
 import './Sidebar.css';
 
 export default function Sidebar() {
@@ -17,6 +18,14 @@ export default function Sidebar() {
     queryFn: () => getUnreadNotificationCount(did!),
     enabled: !!did,
     refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  // Fetch user profile for username display
+  const { data: userProfile } = useQuery({
+    queryKey: ['profile', did],
+    queryFn: () => getProfile(did!),
+    enabled: !!did,
+    retry: false
   });
 
   return (
@@ -85,6 +94,25 @@ export default function Sidebar() {
         <div className="nav-divider"></div>
 
         <button
+          className={`nav-item ${isActive('/about') ? 'active' : ''}`}
+          onClick={() => navigate('/about')}
+        >
+          <span className="nav-icon">ℹ️</span>
+          <span className="nav-label">About</span>
+        </button>
+
+        <a
+          href="https://github.com/dutchiono/daemon_protocol"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="nav-item nav-link"
+          style={{ textDecoration: 'none', color: 'inherit' }}
+        >
+          <span className="nav-icon"><Github size={20} /></span>
+          <span className="nav-label">GitHub</span>
+        </a>
+
+        <button
           className={`nav-item ${isActive('/settings') ? 'active' : ''}`}
           onClick={() => navigate('/settings')}
         >
@@ -99,7 +127,9 @@ export default function Sidebar() {
             <div className="user-avatar">👤</div>
             <div className="user-details">
               <div className="user-name">DID: {did}</div>
-              <div className="user-handle">@user{did}</div>
+              <div className="user-handle">
+                @{userProfile?.username || userProfile?.displayName || `user${did}`}
+              </div>
             </div>
           </div>
         </div>

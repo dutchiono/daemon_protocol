@@ -9,6 +9,7 @@ import Channels from './pages/Channels';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import Compose from './pages/Compose';
+import About from './pages/About';
 import './App.css';
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ function App() {
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile/:fid" element={<Profile />} />
               <Route path="/compose" element={<Compose />} />
+              <Route path="/about" element={<About />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Layout>
