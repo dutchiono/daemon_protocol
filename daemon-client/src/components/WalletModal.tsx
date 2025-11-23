@@ -43,7 +43,6 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
   const { data: existingProfile, isLoading: checkingProfile } = useQuery({
     queryKey: ['profile', did],
     queryFn: () => getProfile(did ? `did:daemon:${did}` : ''),
-    enabled: did !== null,
     enabled: !!did && isOpen,
     retry: false
   });

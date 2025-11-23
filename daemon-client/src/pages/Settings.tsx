@@ -29,7 +29,6 @@ export default function Settings() {
   const { data: currentProfile, isLoading: profileLoading } = useQuery({
     queryKey: ['profile', did],
     queryFn: () => getProfile(did ? `did:daemon:${did}` : ''),
-    enabled: did !== null,
     enabled: !!did,
     retry: false
   });

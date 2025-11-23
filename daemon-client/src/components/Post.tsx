@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { likePost, repostPost } from '../api/client';
+import { useWallet } from '../wallet/WalletProvider';
+import { fidToDid } from '../utils/did';
 import './Post.css';
 
 interface PostData {
@@ -16,12 +18,14 @@ interface PostProps {
 }
 
 export default function Post({ post }: PostProps) {
+  const { did } = useWallet();
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
 
   const handleLike = async () => {
+    if (!did) return;
     try {
-      await likePost(post.hash);
+      await likePost(fidToDid(did), post.hash);
       setLiked(!liked);
     } catch (error) {
       console.error('Failed to like post:', error);
@@ -29,8 +33,9 @@ export default function Post({ post }: PostProps) {
   };
 
   const handleRepost = async () => {
+    if (!did) return;
     try {
-      await repostPost(post.hash);
+      await repostPost(fidToDid(did), post.hash);
       setReposted(!reposted);
     } catch (error) {
       console.error('Failed to repost:', error);
