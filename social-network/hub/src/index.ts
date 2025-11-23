@@ -10,10 +10,12 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { mplex } from '@libp2p/mplex';
 import { kadDHT } from '@libp2p/kad-dht';
 import { bootstrap } from '@libp2p/bootstrap';
+import { identify } from '@libp2p/identify';
 import { HubService } from './hub-service.js';
 import { MessageValidator } from './message-validator.js';
 import { SyncEngine } from './sync-engine.js';
 import { Database } from './database.js';
+import { logger } from './logger.js';
 import type { Config } from './config.js';
 
 const app = express();
@@ -40,6 +42,26 @@ async function initializeHub(config: Config) {
     transports: [webSockets()],
     connectionEncryption: [noise()],
     streamMuxers: [mplex()],
+    services: {
+      identify: identify(),
+      logger: (components: any) => ({
+        forComponent: (name: string) => {
+          return {
+            info: (message: string, ...args: any[]) => logger.info(message, { component: name, args }),
+            error: (message: string | Error, ...args: any[]) => {
+              if (message instanceof Error) {
+                logger.error(message.message, { component: name, args, stack: message.stack });
+              } else {
+                logger.error(message, { component: name, args });
+              }
+            },
+            warn: (message: string, ...args: any[]) => logger.warn(message, { component: name, args }),
+            debug: (message: string, ...args: any[]) => logger.debug(message, { component: name, args }),
+            trace: (message: string, ...args: any[]) => logger.debug(message, { component: name, args }),
+          };
+        }
+      })
+    }
   };
 
   // Add DHT if enabled (default: true)
@@ -166,9 +188,9 @@ if (!config.databaseUrl || config.databaseUrl.trim() === '') {
   try {
     console.log('Initializing Hub...');
     const { hubService } = await initializeHub(config);
-    
+
     console.log('Hub initialized successfully, starting server...');
-    
+
     app.listen(PORT, () => {
       console.log(`Hub server running on port ${PORT}`);
       console.log(`Node ID: ${hubService.getNodeId()}`);
