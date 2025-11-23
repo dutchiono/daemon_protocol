@@ -30,12 +30,14 @@ done
 echo "   ✅ Everything killed"
 echo ""
 
-# 2. Clean builds
+# 2. Clean builds - AGGRESSIVE CLEAN
 echo "2️⃣  Cleaning old builds..."
-cd social-network/hub && rm -rf dist node_modules && cd ../..
-cd social-network/pds && rm -rf dist && cd ../..
-cd social-network/gateway && rm -rf dist && cd ../..
+cd social-network/hub && rm -rf dist node_modules .tsbuildinfo && cd ../..
+cd social-network/pds && rm -rf dist node_modules .tsbuildinfo && cd ../..
+cd social-network/gateway && rm -rf dist node_modules .tsbuildinfo && cd ../..
 cd daemon-client && rm -rf dist node_modules && cd ..
+# Double-check dist is gone
+find social-network -name "dist" -type d -exec rm -rf {} + 2>/dev/null || true
 echo "   ✅ Cleaned"
 echo ""
 
@@ -75,12 +77,42 @@ cd daemon-client && npm install --silent && cd ..
 echo "   ✅ Dependencies installed"
 echo ""
 
-# 5. Build services
+# 5. Build services - VERIFY BUILD SUCCESS
 echo "5️⃣  Building services..."
-cd social-network/hub && npm run build && cd ../..
-cd social-network/pds && npm run build && cd ../..
-cd social-network/gateway && npm run build && cd ../..
-echo "   ✅ Services built"
+cd social-network/hub && npm run build
+if [ ! -f dist/index.js ]; then
+  echo "   ❌ Hub build failed - dist/index.js not found"
+  exit 1
+fi
+cd ../..
+
+cd social-network/pds && npm run build
+if [ ! -f dist/index.js ]; then
+  echo "   ❌ PDS build failed - dist/index.js not found"
+  exit 1
+fi
+# Verify the critical database.js file has the correct INSERT
+if ! grep -q "INSERT INTO profiles (fid, did" dist/database.js; then
+  echo "   ❌ PDS database.js missing did column in INSERT - build may be stale"
+  echo "   Forcing rebuild..."
+  rm -rf dist
+  npm run build
+fi
+cd ../..
+
+cd social-network/gateway && npm run build
+if [ ! -f dist/index.js ]; then
+  echo "   ❌ Gateway build failed - dist/index.js not found"
+  exit 1
+fi
+# Verify Gateway routes use :did not :fid
+if grep -q "/api/v1/profile/:fid" dist/index.js; then
+  echo "   ❌ Gateway still using old :fid routes - forcing rebuild..."
+  rm -rf dist
+  npm run build
+fi
+cd ../..
+echo "   ✅ Services built and verified"
 echo ""
 
 # 6. Build and deploy client
