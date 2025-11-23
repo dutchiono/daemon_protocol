@@ -23,9 +23,9 @@ export class GatewayService {
             cursor: rankedPosts.length > limit ? rankedPosts[limit - 1].hash : undefined
         };
     }
-    async createPost(fid, text, parentHash, embeds) {
-        // Create post via aggregation layer
-        const post = await this.aggregationLayer.createPost(fid, text, parentHash, embeds);
+    async createPost(did, text, parentHash, embeds) {
+        // Create post via aggregation layer (accepts did)
+        const post = await this.aggregationLayer.createPost(did, text, parentHash, embeds);
         return post;
     }
     async getPost(hash) {

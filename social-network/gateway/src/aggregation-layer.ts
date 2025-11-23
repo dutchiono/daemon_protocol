@@ -304,13 +304,16 @@ export class AggregationLayer {
             };
         }
 
-        // Add embed if embeds exist and are valid
+        // Add embeds if they exist and are valid
+        // Store embeds as a simple array in the record for now
+        // The hub will parse these and store them in message_embeds table
         if (embeds && Array.isArray(embeds) && embeds.length > 0) {
-            const firstEmbed = embeds[0];
-            // Ensure embed is a plain object (not a class instance)
-            if (firstEmbed && typeof firstEmbed === 'object') {
-                record.embed = JSON.parse(JSON.stringify(firstEmbed));
-            }
+            // Store embeds array directly in the record
+            // This allows the hub to parse and store them properly
+            record.embeds = embeds.map(embed => ({
+                type: embed.type || 'image',
+                url: embed.url || ''
+            }));
         }
 
         // Build request body, removing undefined values
@@ -1211,6 +1214,54 @@ export class AggregationLayer {
                 LIMIT 50
             `, [did, sevenDaysAgo]);
 
+    async getRepliesByUser(did: string, limit: number, cursor?: string): Promise<Post[]> {
+        // Get posts where this user replied (parent_hash is not null and did matches)
+        const posts = await this.getPostsFromUsers([did], 'chronological', limit * 2, cursor);
+        // Filter to only replies (posts with parent_hash)
+        const replies = posts.filter(post => post.parentHash);
+        return replies.slice(0, limit);
+    }
+
+    async getReactionsByUser(did: string, type?: 'like' | 'repost' | 'quote', limit: number = 50): Promise<Post[]> {
+        // Get reactions by this user
+        let query = `SELECT target_hash, reaction_type, timestamp FROM reactions WHERE did = $1 AND active = true`;
+        const params: any[] = [did];
+
+        if (type) {
+            query += ` AND reaction_type = $2`;
+            params.push(type);
+            query += ` ORDER BY timestamp DESC LIMIT $3`;
+            params.push(limit);
+        } else {
+            query += ` ORDER BY timestamp DESC LIMIT $2`;
+            params.push(limit);
+        }
+
+        const result = await this.db.query(query, params);
+        const targetHashes = result.rows.map((row: any) => row.target_hash);
+
+        // Fetch the actual posts for these hashes
+        const posts: Post[] = [];
+        for (const hash of targetHashes) {
+            try {
+                const post = await this.getPost(hash, null);
+                if (post) {
+                    // Add reaction metadata
+                    const reactionRow = result.rows.find((r: any) => r.target_hash === hash);
+                    if (reactionRow) {
+                        (post as any).reactionType = reactionRow.reaction_type;
+                        (post as any).reactionTimestamp = parseInt(reactionRow.timestamp);
+                    }
+                    posts.push(post);
+                }
+            } catch (error) {
+                console.warn(`Could not fetch post ${hash} for reaction:`, error);
+            }
+        }
+
+        return posts;
+    }
+
             const notifications: any[] = [];
 
             // Process reactions
@@ -1255,6 +1306,51 @@ export class AggregationLayer {
         } catch (error) {
             console.error('Error getting notifications:', error);
             return { notifications: [] };
+        }
+    }
+
+    async getRepostsAndQuotesForFeed(dids: string[], limit: number): Promise<Post[]> {
+        // Get recent reposts and quote casts from these users
+        try {
+            const result = await this.db.query(`
+                SELECT r.did, r.target_hash, r.reaction_type, r.timestamp
+                FROM reactions r
+                WHERE r.did = ANY($1::text[])
+                AND r.reaction_type IN ('repost', 'quote')
+                AND r.active = true
+                ORDER BY r.timestamp DESC
+                LIMIT $2
+            `, [dids, limit]);
+
+            const posts: Post[] = [];
+            for (const row of result.rows) {
+                try {
+                    // Get the original post (this will check both messages table and PDS)
+                    const originalPost = await this.getPost(row.target_hash, null);
+                    if (originalPost) {
+                        // Create a post object that represents the repost/quote
+                        const repostPost: any = {
+                            ...originalPost,
+                            hash: `${row.did}-${row.reaction_type}-${row.target_hash}-${row.timestamp}`, // Unique hash for repost/quote
+                            repostedBy: row.did,
+                            repostType: row.reaction_type,
+                            repostTimestamp: parseInt(row.timestamp),
+                            isRepost: row.reaction_type === 'repost',
+                            isQuote: row.reaction_type === 'quote',
+                            // Use repost timestamp for sorting in feed
+                            timestamp: parseInt(row.timestamp),
+                        };
+                        posts.push(repostPost);
+                    }
+                } catch (error) {
+                    console.warn(`Could not fetch post ${row.target_hash} for repost/quote:`, error);
+                }
+            }
+
+            return posts;
+        } catch (error) {
+            console.error('Error getting reposts and quotes for feed:', error);
+            return [];
         }
     }
 

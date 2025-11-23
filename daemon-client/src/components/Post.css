@@ -64,6 +64,31 @@
 
 .post-embeds {
   margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.post-embed-image {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #333;
+  background: #0a0a0a;
+}
+
+.post-embed-image img {
+  width: 100%;
+  height: auto;
+  display: block;
+  transition: opacity 0.2s;
+}
+
+.post-embed-image img:hover {
+  opacity: 0.9;
+}
+
+.post-embed {
+  margin-bottom: 0.5rem;
 }
 
 .post-embed img {
@@ -113,6 +138,26 @@
 
 .post-content p {
   margin: 0;
+}
+
+/* Repost/Quote indicator */
+.repost-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  margin-bottom: 0.5rem;
+  color: #888;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.repost-icon {
+  font-size: 1rem;
+}
+
+.repost-text {
+  font-weight: 500;
 }
 
 .post-actions {

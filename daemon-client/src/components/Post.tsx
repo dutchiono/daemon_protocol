@@ -25,6 +25,12 @@ interface PostData {
   liked?: boolean; // Whether current user liked this
   reposted?: boolean; // Whether current user reposted this
   replyCount?: number; // Number of replies
+  // Repost/Quote cast metadata
+  isRepost?: boolean;
+  isQuote?: boolean;
+  repostedBy?: string; // DID of user who reposted
+  repostType?: 'repost' | 'quote';
+  repostTimestamp?: number;
 }
 
 interface PostProps {
@@ -180,6 +186,15 @@ export default function Post({ post }: PostProps) {
           initialVote={post.currentVote ?? null}
         />
         <div className="post-content-wrapper">
+          {/* Repost/Quote indicator */}
+          {(post.isRepost || post.isQuote) && post.repostedBy && (
+            <div className="repost-indicator">
+              <span className="repost-icon">{post.isRepost ? '↻' : '💬'}</span>
+              <span className="repost-text">
+                {post.isRepost ? 'Reposted' : 'Quoted'} by @{post.repostedBy.split(':').pop() || 'unknown'}
+              </span>
+            </div>
+          )}
           <div className="post-header">
             <span className="post-author">
               @{post.username || post.did || post.fid || 'unknown'}
@@ -195,19 +210,47 @@ export default function Post({ post }: PostProps) {
             <p style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{post.text}</p>
             {post.embeds && post.embeds.length > 0 && (
               <div className="post-embeds">
-                {post.embeds.map((embed, i) => (
-                  <div key={i} className="post-embed">
-                    {embed.type === 'image' && embed.url && (
-                      <img src={embed.url} alt="Embed" />
-                    )}
-                    {embed.type === 'url' && embed.metadata && (
-                      <a href={embed.url} target="_blank" rel="noopener noreferrer">
-                        <h4>{embed.metadata.title}</h4>
-                        <p>{embed.metadata.description}</p>
-                      </a>
-                    )}
-                  </div>
-                ))}
+                {post.embeds.map((embed, i) => {
+                  if (embed.type === 'image' && embed.url) {
+                    // Convert IPFS URL to gateway URL
+                    const imageUrl = embed.url.startsWith('ipfs://')
+                      ? embed.url.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/')
+                      : embed.url;
+
+                    return (
+                      <div key={i} className="post-embed post-embed-image">
+                        <img
+                          src={imageUrl}
+                          alt="Post image"
+                          onClick={() => {
+                            // Open image in new tab for full view
+                            window.open(imageUrl, '_blank');
+                          }}
+                          style={{ cursor: 'pointer' }}
+                          onError={(e) => {
+                            // Fallback to other gateways if Pinata fails
+                            const target = e.target as HTMLImageElement;
+                            if (embed.url.startsWith('ipfs://')) {
+                              const hash = embed.url.replace('ipfs://', '');
+                              target.src = `https://ipfs.io/ipfs/${hash}`;
+                            }
+                          }}
+                        />
+                      </div>
+                    );
+                  }
+                  if (embed.type === 'url' && embed.metadata) {
+                    return (
+                      <div key={i} className="post-embed">
+                        <a href={embed.url} target="_blank" rel="noopener noreferrer">
+                          <h4>{embed.metadata.title}</h4>
+                          <p>{embed.metadata.description}</p>
+                        </a>
+                      </div>
+                    );
+                  }
+                  return null;
+                })}
               </div>
             )}
           </div>

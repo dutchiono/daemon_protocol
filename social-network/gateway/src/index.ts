@@ -135,6 +135,46 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
     }
   });
 
+  // Get replies by user DID
+  app.get('/api/v1/users/:did/replies', async (req, res) => {
+    try {
+      const { did } = req.params;
+      const { limit = 50, cursor } = req.query;
+
+      // Validate did format
+      if (!did || !did.startsWith('did:daemon:')) {
+        return res.status(400).json({ error: 'Invalid did format. Expected did:daemon:X' });
+      }
+
+      const replies = await gatewayService.getRepliesByUser(did, parseInt(limit as string) || 50, cursor as string | undefined);
+      res.json({ posts: replies, cursor: replies.length > 0 ? replies[replies.length - 1].hash : undefined });
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  // Get reactions (likes/reposts/quotes) by user DID
+  app.get('/api/v1/users/:did/reactions', async (req, res) => {
+    try {
+      const { did } = req.params;
+      const { type, limit = 50 } = req.query;
+
+      // Validate did format
+      if (!did || !did.startsWith('did:daemon:')) {
+        return res.status(400).json({ error: 'Invalid did format. Expected did:daemon:X' });
+      }
+
+      const reactionType = type && ['like', 'repost', 'quote'].includes(type as string)
+        ? (type as 'like' | 'repost' | 'quote')
+        : undefined;
+
+      const posts = await gatewayService.getReactionsByUser(did, reactionType, parseInt(limit as string) || 50);
+      res.json({ posts });
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
   // Lookup DID from wallet address
   app.get('/api/v1/wallet/:address/did', async (req, res) => {
     try {

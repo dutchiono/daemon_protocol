@@ -57,8 +57,14 @@ export class GatewayService {
         cursor
       );
 
+      // Get reposts and quote casts from followed users
+      const repostsAndQuotes = await this.aggregationLayer.getRepostsAndQuotesForFeed(didsToQuery, limit);
+
+      // Combine posts with reposts/quotes
+      const allPosts = [...posts, ...repostsAndQuotes];
+
       // Enrich posts with votes
-      const enrichedPosts = await this.aggregationLayer.enrichPostsWithVotes(posts, did);
+      const enrichedPosts = await this.aggregationLayer.enrichPostsWithVotes(allPosts, did);
 
       // Rank posts (algorithmic or chronological)
       const rankedPosts = type === 'algorithmic' || type === 'hot' || type === 'top'
@@ -100,8 +106,18 @@ export class GatewayService {
   async getPostsByUser(did: string, limit: number, cursor?: string): Promise<Post[]> {
     // Get posts from this specific user - using DID
     const posts = await this.aggregationLayer.getPostsFromUsers([did], 'chronological', limit, cursor);
+    // Filter out replies (only show top-level posts)
+    const topLevelPosts = posts.filter(post => !post.parentHash);
     // Enrich with votes if needed
-    return await this.aggregationLayer.enrichPostsWithVotes(posts, did);
+    return await this.aggregationLayer.enrichPostsWithVotes(topLevelPosts, did);
+  }
+
+  async getRepliesByUser(did: string, limit: number, cursor?: string): Promise<Post[]> {
+    return await this.aggregationLayer.getRepliesByUser(did, limit, cursor);
+  }
+
+  async getReactionsByUser(did: string, type?: 'like' | 'repost' | 'quote', limit: number = 50): Promise<Post[]> {
+    return await this.aggregationLayer.getReactionsByUser(did, type, limit);
   }
 
   async getDIDFromAddress(walletAddress: string): Promise<string | null> {

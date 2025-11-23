@@ -6,9 +6,10 @@
 
 .main-content {
   flex: 1;
-  margin-left: 280px; /* Sidebar width */
+  margin-left: 280px; /* Sidebar width - will be updated dynamically by Sidebar component */
   display: flex;
   flex-direction: column;
+  transition: margin-left 0.3s ease;
 }
 
 .content-area {

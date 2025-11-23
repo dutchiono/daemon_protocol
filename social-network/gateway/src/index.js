@@ -41,8 +41,11 @@ function setupAPI(app, gatewayService, config) {
     // Post endpoints
     protectedRoutes.post('/api/v1/posts', async (req, res) => {
         try {
-            const { fid, text, parentHash, embeds } = req.body;
-            const result = await gatewayService.createPost(fid, text, parentHash, embeds);
+            const { did, text, parentHash, embeds } = req.body;
+            // Gateway service expects fid, but we're using did now
+            // Convert did to fid if needed, or update gateway service to accept did
+            // For now, pass did directly - aggregation layer accepts did
+            const result = await gatewayService.createPost(did, text, parentHash, embeds);
             res.json(result);
         }
         catch (error) {

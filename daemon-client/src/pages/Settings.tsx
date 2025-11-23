@@ -229,16 +229,58 @@ export default function Settings() {
 
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                    Avatar URL
+                    Profile Picture
                   </label>
-                  <input
-                    type="url"
-                    value={profileData.avatar}
-                    onChange={(e) => setProfileData({ ...profileData, avatar: e.target.value })}
-                    className="settings-input"
-                    placeholder="https://example.com/avatar.jpg"
-                    disabled={isSaving}
-                  />
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            // Validate file size (5MB max)
+                            if (file.size > 5 * 1024 * 1024) {
+                              alert('Profile picture must be 5MB or less');
+                              return;
+                            }
+                            try {
+                              const { uploadProfilePicture } = await import('../api/client');
+                              const ipfsUrl = await uploadProfilePicture(file);
+                              setProfileData({ ...profileData, avatar: ipfsUrl });
+                            } catch (error: any) {
+                              alert('Failed to upload profile picture: ' + (error.message || 'Unknown error'));
+                            }
+                          }
+                        }}
+                        className="settings-input"
+                        disabled={isSaving}
+                        style={{ padding: '0.5rem' }}
+                      />
+                      <input
+                        type="url"
+                        value={profileData.avatar}
+                        onChange={(e) => setProfileData({ ...profileData, avatar: e.target.value })}
+                        className="settings-input"
+                        placeholder="Or enter IPFS URL (ipfs://...)"
+                        disabled={isSaving}
+                      />
+                    </div>
+                    {profileData.avatar && (
+                      <div style={{ width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
+                        <img
+                          src={profileData.avatar.startsWith('ipfs://')
+                            ? profileData.avatar.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/')
+                            : profileData.avatar}
+                          alt="Avatar preview"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div>

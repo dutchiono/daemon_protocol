@@ -50,12 +50,13 @@ export async function getFeed(
   }
 }
 
-export async function createPost(did: string, text: string, parentHash?: string) {
+export async function createPost(did: string, text: string, parentHash?: string, embeds?: Array<{ type: string; url: string }>) {
   try {
     const response = await axios.post(`${API_URL}/api/v1/posts`, {
       did,
       text,
-      parentHash
+      parentHash,
+      embeds
     }, {
       timeout: 10000
     });
@@ -66,6 +67,22 @@ export async function createPost(did: string, text: string, parentHash?: string)
     }
     throw error;
   }
+}
+
+export async function uploadMedia(files: File[]): Promise<string[]> {
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append('images', file);
+  });
+
+  const response = await axios.post(`${API_URL}/api/upload/media`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    timeout: 60000, // 60 seconds for multiple uploads
+  });
+
+  return response.data.imageUrls; // Returns array of ipfs://hash
 }
 
 export async function getPost(hash: string) {
@@ -93,6 +110,20 @@ export async function updateProfile(
     timeout: 10000
   });
   return response.data;
+}
+
+export async function uploadProfilePicture(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const response = await axios.post(`${API_URL}/api/upload/profile-picture`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    timeout: 30000, // 30 seconds for upload
+  });
+
+  return response.data.imageUrl; // Returns ipfs://hash
 }
 
 export async function likePost(did: string, targetHash: string) {
@@ -267,6 +298,40 @@ export async function getUserPosts(did: string, limit: number = 50, cursor?: str
       throw new Error('Network error: Could not connect to server. Please check if the server is running.');
     }
     throw error;
+  }
+}
+
+export async function getUserReplies(did: string, limit: number = 50, cursor?: string) {
+  try {
+    const params: any = { limit };
+    if (cursor) params.cursor = cursor;
+    const response = await axios.get(`${API_URL}/api/v1/users/${encodeURIComponent(did)}/replies`, {
+      params,
+      timeout: 10000
+    });
+    return response.data;
+  } catch (error: any) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
+      return { posts: [] };
+    }
+    return { posts: [] };
+  }
+}
+
+export async function getUserReactions(did: string, type?: 'like' | 'repost' | 'quote', limit: number = 50) {
+  try {
+    const params: any = { limit };
+    if (type) params.type = type;
+    const response = await axios.get(`${API_URL}/api/v1/users/${encodeURIComponent(did)}/reactions`, {
+      params,
+      timeout: 10000
+    });
+    return response.data;
+  } catch (error: any) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
+      return { posts: [] };
+    }
+    return { posts: [] };
   }
 }
 

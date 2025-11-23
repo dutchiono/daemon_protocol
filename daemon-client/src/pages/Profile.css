@@ -24,9 +24,8 @@
 }
 
 .profile-avatar-section {
-  position: absolute;
-  top: -50px;
-  left: 1.5rem;
+  position: relative;
+  display: inline-block;
 }
 
 .profile-avatar {
