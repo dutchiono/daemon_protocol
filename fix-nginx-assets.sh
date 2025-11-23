@@ -30,18 +30,18 @@ if grep -q "location /assets/" "$NGINX_CONFIG"; then
   echo "✅ Assets location block already exists"
 else
   echo "➕ Adding assets location block..."
-  
+
   # Add assets location block before the main location / block
   # This ensures static assets are served before routing to the app
   sudo sed -i '/location \/api\//i\
     # Serve static assets\
     location /assets/ {\
-        alias /var/www/daemon-client/dist/assets/;\
+        alias /var/www/daemon-client/assets/;\
         expires 1y;\
         add_header Cache-Control "public, immutable";\
     }\
 ' "$NGINX_CONFIG"
-  
+
   echo "✅ Assets location block added"
 fi
 

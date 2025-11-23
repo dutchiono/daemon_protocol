@@ -28,8 +28,19 @@ echo "✅ Client built successfully"
 echo ""
 
 echo "3️⃣  Copying files to Nginx directory..."
+# Ensure directory exists
+sudo mkdir -p /var/www/daemon-client
+# Copy all files from dist
 sudo cp -r dist/* /var/www/daemon-client/
-echo "✅ Files copied to /var/www/daemon-client/"
+# Verify assets were copied
+if [ -d "/var/www/daemon-client/assets" ]; then
+  echo "✅ Files copied to /var/www/daemon-client/"
+  echo "   Assets directory exists with $(ls /var/www/daemon-client/assets/ | wc -l) files"
+else
+  echo "❌ WARNING: Assets directory not found after copy!"
+  echo "   Checking dist folder..."
+  ls -la dist/ || true
+fi
 echo ""
 
 echo "4️⃣  Setting correct permissions..."
