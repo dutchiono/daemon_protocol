@@ -32,12 +32,14 @@ echo ""
 
 # 2. Clean builds - AGGRESSIVE CLEAN
 echo "2️⃣  Cleaning old builds..."
-cd social-network/hub && rm -rf dist node_modules .tsbuildinfo && cd ../..
-cd social-network/pds && rm -rf dist node_modules .tsbuildinfo && cd ../..
-cd social-network/gateway && rm -rf dist node_modules .tsbuildinfo && cd ../..
+cd social-network/hub && rm -rf dist node_modules .tsbuildinfo src/*.d.ts && cd ../..
+cd social-network/pds && rm -rf dist node_modules .tsbuildinfo src/*.d.ts && cd ../..
+cd social-network/gateway && rm -rf dist node_modules .tsbuildinfo src/*.d.ts && cd ../..
 cd daemon-client && rm -rf dist node_modules && cd ..
 # Double-check dist is gone
 find social-network -name "dist" -type d -exec rm -rf {} + 2>/dev/null || true
+# Remove any stray .d.ts files in src (they should be in dist)
+find social-network -path "*/src/*.d.ts" -type f -delete 2>/dev/null || true
 echo "   ✅ Cleaned"
 echo ""
 
