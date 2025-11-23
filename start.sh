@@ -32,15 +32,18 @@ echo ""
 
 # 2. Clean builds - AGGRESSIVE CLEAN
 echo "2️⃣  Cleaning old builds..."
-cd social-network/hub && rm -rf dist node_modules .tsbuildinfo && find src -name "*.d.ts" -type f -delete 2>/dev/null || true && cd ../..
-cd social-network/pds && rm -rf dist node_modules .tsbuildinfo && find src -name "*.d.ts" -type f -delete 2>/dev/null || true && cd ../..
-cd social-network/gateway && rm -rf dist node_modules .tsbuildinfo && find src -name "*.d.ts" -type f -delete 2>/dev/null || true && cd ../..
+# Remove all .d.ts files from src directories FIRST (before anything else)
+find social-network -path "*/src/*.d.ts" -type f -delete 2>/dev/null || true
+find social-network -path "*/src/*.d.ts.map" -type f -delete 2>/dev/null || true
+# Now clean each service
+cd social-network/hub && rm -rf dist node_modules .tsbuildinfo && cd ../..
+cd social-network/pds && rm -rf dist node_modules .tsbuildinfo && cd ../..
+cd social-network/gateway && rm -rf dist node_modules .tsbuildinfo && cd ../..
 cd daemon-client && rm -rf dist node_modules && cd ..
 # Double-check dist is gone
 find social-network -name "dist" -type d -exec rm -rf {} + 2>/dev/null || true
-# Remove any stray .d.ts files in src (they should be in dist)
+# Final pass - remove any remaining .d.ts files
 find social-network -path "*/src/*.d.ts" -type f -delete 2>/dev/null || true
-find social-network -path "*/src/*.d.ts.map" -type f -delete 2>/dev/null || true
 echo "   ✅ Cleaned"
 echo ""
 
@@ -115,11 +118,24 @@ if ! grep -q "INSERT INTO profiles (fid, did" dist/database.js; then
 fi
 cd ../..
 
-cd social-network/gateway && npm run build
+cd social-network/gateway
+# CRITICAL: Remove any .d.ts files in src before building
+find src -name "*.d.ts" -type f -delete 2>/dev/null || true
+find src -name "*.d.ts.map" -type f -delete 2>/dev/null || true
+# Verify types.ts has Vote export BEFORE building
+if ! grep -q "export interface Vote" src/types.ts; then
+  echo "   ❌ Vote interface missing from types.ts - this should not happen!"
+  echo "   Checking types.ts content:"
+  head -50 src/types.ts | tail -20
+  exit 1
+fi
+# Now build
+npm run build
 if [ ! -f dist/index.js ]; then
   echo "   ❌ Gateway build failed - dist/index.js not found"
-  # Try cleaning .d.ts files and rebuilding
-  echo "   🔧 Cleaning stale .d.ts files and retrying..."
+  echo "   Checking for stale .d.ts files:"
+  find src -name "*.d.ts" -type f
+  echo "   Removing any found and retrying..."
   find src -name "*.d.ts" -type f -delete 2>/dev/null || true
   rm -rf dist .tsbuildinfo
   npm run build
@@ -133,11 +149,6 @@ if grep -q "/api/v1/profile/:fid" dist/index.js; then
   echo "   ❌ Gateway still using old :fid routes - forcing rebuild..."
   rm -rf dist
   npm run build
-fi
-# Verify Vote type is exported (check source, not dist)
-if ! grep -q "export interface Vote" src/types.ts; then
-  echo "   ❌ Vote interface missing from types.ts"
-  exit 1
 fi
 cd ../..
 echo "   ✅ Services built and verified"
