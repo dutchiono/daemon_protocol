@@ -30,8 +30,16 @@ done
 echo "   ✅ Everything killed"
 echo ""
 
-# 2. Clean builds - AGGRESSIVE CLEAN
-echo "2️⃣  Cleaning old builds..."
+# 2. Pull latest FIRST (before cleaning, so we have the right files)
+echo "2️⃣  Pulling latest code..."
+git pull
+if [ $? -ne 0 ]; then
+  echo "   ⚠️  Git pull had issues, continuing anyway..."
+fi
+echo ""
+
+# 3. Clean builds - AGGRESSIVE CLEAN
+echo "3️⃣  Cleaning old builds..."
 # Remove all .d.ts files from src directories FIRST (before anything else)
 find social-network -path "*/src/*.d.ts" -type f -delete 2>/dev/null || true
 find social-network -path "*/src/*.d.ts.map" -type f -delete 2>/dev/null || true
@@ -47,12 +55,7 @@ find social-network -path "*/src/*.d.ts" -type f -delete 2>/dev/null || true
 echo "   ✅ Cleaned"
 echo ""
 
-# 3. Pull latest
-echo "3️⃣  Pulling latest code..."
-git pull
-echo ""
-
-# 3.5. Run database migrations
+# 4. Run database migrations
 echo "3.5️⃣  Running database migrations..."
 run_migration() {
   local migration_file=$1
@@ -86,8 +89,8 @@ fi
 echo "   ✅ Migration check complete"
 echo ""
 
-# 4. Install dependencies
-echo "4️⃣  Installing dependencies..."
+# 5. Install dependencies
+echo "5️⃣  Installing dependencies..."
 cd social-network/hub && npm install --silent && cd ../..
 cd social-network/pds && npm install --silent && cd ../..
 cd social-network/gateway && npm install --silent && cd ../..
@@ -95,8 +98,8 @@ cd daemon-client && npm install --silent && cd ..
 echo "   ✅ Dependencies installed"
 echo ""
 
-# 5. Build services - VERIFY BUILD SUCCESS
-echo "5️⃣  Building services..."
+# 6. Build services - VERIFY BUILD SUCCESS
+echo "6️⃣  Building services..."
 cd social-network/hub && npm run build
 if [ ! -f dist/index.js ]; then
   echo "   ❌ Hub build failed - dist/index.js not found"
@@ -163,8 +166,8 @@ cd ../..
 echo "   ✅ Services built and verified"
 echo ""
 
-# 6. Build and deploy client
-echo "6️⃣  Building and deploying client..."
+# 7. Build and deploy client
+echo "7️⃣  Building and deploying client..."
 cd daemon-client
 npm run build
 sudo rm -rf /var/www/daemon-client/* 2>/dev/null || rm -rf /var/www/daemon-client/* 2>/dev/null || true
@@ -176,7 +179,7 @@ cd ..
 echo "   ✅ Client deployed"
 echo ""
 
-# 7. Set env vars
+# 8. Set env vars
 export DATABASE_URL="${DATABASE_URL:-postgresql://daemon:daemon_password@localhost:5432/daemon}"
 export GATEWAY_PORT="${GATEWAY_PORT:-4003}"
 export GATEWAY_ID="${GATEWAY_ID:-gateway-1}"
@@ -195,7 +198,7 @@ export HUB_PORT="${HUB_PORT:-4001}"
 export NODE_ID="${NODE_ID:-}"
 export ENABLE_DHT="${ENABLE_DHT:-true}"
 
-# 8. Start everything
+# 9. Start everything
 echo "7️⃣  Starting all services..."
 pm2 start social-network/hub/dist/index.js --name daemon-hub --update-env \
   --env DATABASE_URL="$DATABASE_URL" \
