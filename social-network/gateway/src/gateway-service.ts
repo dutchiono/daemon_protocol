@@ -50,7 +50,7 @@ export class GatewayService {
       // Rank posts (algorithmic or chronological)
       const rankedPosts = type === 'algorithmic' || type === 'hot' || type === 'top'
         ? await this.rankPostsAlgorithmically(enrichedPosts, did, type)
-        : enrichedPosts.sort((a, b) => b.timestamp - a.timestamp);
+        : enrichedPosts.sort((a: Post, b: Post) => b.timestamp - a.timestamp);
 
       return {
         posts: rankedPosts.slice(0, limit),

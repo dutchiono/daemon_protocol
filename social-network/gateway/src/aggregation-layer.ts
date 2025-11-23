@@ -4,7 +4,9 @@
  */
 import pg from 'pg';
 import Redis from 'redis';
+import type { Config } from './config.js';
 import { didToFid } from './did-utils.js';
+import type { Reaction } from './types.js';
 const { Pool } = pg;
 export class AggregationLayer {
     db;
@@ -12,7 +14,7 @@ export class AggregationLayer {
     config;
     hubEndpoints;
     pdsEndpoints;
-    constructor(config) {
+    constructor(config: Config) {
         this.config = config;
         if (!config.databaseUrl || config.databaseUrl.trim() === '') {
             throw new Error('DATABASE_URL is required');
@@ -25,7 +27,7 @@ export class AggregationLayer {
             this.redis.connect().catch(console.error);
         }
     }
-    async getFollows(fid) {
+    async getFollows(fid: number) {
         // Check cache first
         const cacheKey = `follows:${fid}`;
         if (this.redis) {
@@ -44,16 +46,18 @@ export class AggregationLayer {
         }
         return follows;
     }
-    async getPostsFromUsers(fids, type, limit, cursor) {
+    async getPostsFromUsers(fids: number[], type: string, limit: number, cursor?: string) {
         // Query from hubs
-        const posts = [];
+        const posts: any[] = [];
         for (const hubEndpoint of this.hubEndpoints) {
             try {
                 // Query hub for posts from these users
                 const response = await fetch(`${hubEndpoint}/api/v1/messages/batch?fids=${fids.join(',')}&limit=${limit}`);
                 if (response.ok) {
-                    const data = await response.json();
-                    posts.push(...data.messages);
+                    const data: any = await response.json();
+                    if (data.messages && Array.isArray(data.messages)) {
+                        posts.push(...data.messages);
+                    }
                 }
             }
             catch (error) {
@@ -64,7 +68,7 @@ export class AggregationLayer {
         const uniquePosts = this.deduplicatePosts(posts);
         return uniquePosts.slice(0, limit);
     }
-    async createPost(did, text, parentHash, embeds) {
+    async createPost(did: string, text: string, parentHash?: string, embeds?: any[]) {
         // Convert did to fid for internal operations
         const fid = didToFid(did);
 
@@ -191,7 +195,7 @@ export class AggregationLayer {
                         hash: result.uri,
                         did,
                         text,
-                        parentHash: parentHash || null,
+                        parentHash: parentHash || undefined,
                         timestamp: Math.floor(Date.now() / 1000),
                         embeds: embeds || []
                     };
@@ -229,12 +233,12 @@ export class AggregationLayer {
             hash: result.uri,
             did,
             text,
-            parentHash: parentHash || null,
+            parentHash: parentHash || undefined,
             timestamp: Math.floor(Date.now() / 1000),
             embeds: embeds || []
         };
     }
-    async getPost(hash, userDid) {
+    async getPost(hash: string, userDid?: string | null) {
         // Check cache
         if (this.redis) {
             const cached = await this.redis.get(`post:${hash}`);
@@ -271,7 +275,7 @@ export class AggregationLayer {
         }
         return null;
     }
-    async getProfile(did) {
+    async getProfile(did: string) {
         const fid = didToFid(did);
         // Check cache
         if (this.redis) {
@@ -304,7 +308,7 @@ export class AggregationLayer {
         }
         return profile;
     }
-    async createFollow(followerDid, followingDid) {
+    async createFollow(followerDid: string, followingDid: string) {
         const followerFid = didToFid(followerDid);
         const followingFid = didToFid(followingDid);
         // Create follow on user's PDS
@@ -334,7 +338,7 @@ export class AggregationLayer {
             await this.redis.del(`follows:${followerDid}`);
         }
     }
-    async deleteFollow(followerFid, followingFid) {
+    async deleteFollow(followerFid: number, followingFid: number) {
         await this.db.query(`UPDATE follows SET active = false
        WHERE follower_fid = $1 AND following_fid = $2`, [followerFid, followingFid]);
         // Invalidate cache
@@ -342,7 +346,7 @@ export class AggregationLayer {
             await this.redis.del(`follows:${followerFid}`);
         }
     }
-    async createReaction(fid, targetHash, type) {
+    async createReaction(fid: number, targetHash: string, type: 'like' | 'repost' | 'quote'): Promise<Reaction> {
         // Store reaction in database
         await this.db.query(`INSERT INTO reactions (fid, target_hash, reaction_type, timestamp, active)
        VALUES ($1, $2, $3, $4, true)
@@ -350,11 +354,11 @@ export class AggregationLayer {
         return {
             type,
             targetHash,
-            fid,
+            did: `did:daemon:${fid}`,
             timestamp: Math.floor(Date.now() / 1000)
         };
     }
-    async searchPosts(query, limit) {
+    async searchPosts(query: string, limit: number) {
         // Full-text search in database
         const result = await this.db.query(`SELECT * FROM messages
        WHERE deleted = false
@@ -368,7 +372,7 @@ export class AggregationLayer {
             timestamp: parseInt(row.timestamp)
         }));
     }
-    async searchUsers(query, limit) {
+    async searchUsers(query: string, limit: number) {
         const result = await this.db.query(`SELECT * FROM profiles
        WHERE username ILIKE $1 OR display_name ILIKE $1
        LIMIT $2`, [`%${query}%`, limit]);
@@ -381,7 +385,7 @@ export class AggregationLayer {
             verified: row.verified
         }));
     }
-    async getUserPDS(did) {
+    async getUserPDS(did: string) {
         // In production, would query user's PDS assignment
         // For now, return first PDS (direct URL for server-side requests)
         if (this.pdsEndpoints && this.pdsEndpoints.length > 0) {
@@ -390,7 +394,7 @@ export class AggregationLayer {
         }
         return null;
     }
-    async getUnreadNotificationCount(did) {
+    async getUnreadNotificationCount(did: string) {
         const fid = didToFid(did);
         if (!this.config.databaseUrl || !this.db) {
             return 0;
@@ -473,7 +477,7 @@ export class AggregationLayer {
         console.log('[AggregationLayer] PDS account created successfully for:', did);
     }
 
-    async createVote(did, targetHash, targetType, voteType) {
+    async createVote(did: string, targetHash: string, targetType: 'post' | 'comment', voteType: 'UP' | 'DOWN') {
         const fid = didToFid(did);
         const timestamp = Math.floor(Date.now() / 1000);
 
@@ -494,7 +498,7 @@ export class AggregationLayer {
         };
     }
 
-    async getPostVotes(targetHash) {
+    async getPostVotes(targetHash: string) {
         const result = await this.db.query(`
             SELECT
                 COUNT(*) as vote_count,
@@ -512,7 +516,7 @@ export class AggregationLayer {
         };
     }
 
-    async getUserVote(did, targetHash) {
+    async getUserVote(did: string, targetHash: string) {
         const result = await this.db.query(`
             SELECT vote_type FROM votes
             WHERE did = $1 AND target_hash = $2
@@ -525,7 +529,7 @@ export class AggregationLayer {
         return result.rows[0].vote_type;
     }
 
-    async enrichPostWithVotes(post, userDid) {
+    async enrichPostWithVotes(post: any, userDid: string) {
         if (!post || !post.hash) {
             return post;
         }
@@ -542,7 +546,7 @@ export class AggregationLayer {
         };
     }
 
-    async enrichPostsWithVotes(posts, userDid) {
+    async enrichPostsWithVotes(posts: any[], userDid: string) {
         if (!posts || !Array.isArray(posts)) {
             return posts;
         }
@@ -550,7 +554,15 @@ export class AggregationLayer {
         return Promise.all(posts.map(post => this.enrichPostWithVotes(post, userDid)));
     }
 
-    async updateProfile(did, updates) {
+    async updateProfile(did: string, updates: {
+        username?: string;
+        displayName?: string;
+        bio?: string;
+        avatar?: string;
+        banner?: string;
+        website?: string;
+        walletAddress?: string;
+    }) {
         const fid = didToFid(did);
 
         // Build update query dynamically
@@ -674,9 +686,9 @@ export class AggregationLayer {
         return profile;
     }
 
-    deduplicatePosts(posts) {
+    deduplicatePosts(posts: any[]) {
         const seen = new Set();
-        return posts.filter(post => {
+        return posts.filter((post: any) => {
             if (seen.has(post.hash)) {
                 return false;
             }
