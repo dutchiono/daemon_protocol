@@ -59,22 +59,41 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
   protectedRoutes.post('/api/v1/posts', async (req, res) => {
     try {
       const { did, text, parentHash, embeds } = req.body;
+      console.log('[Gateway] POST /api/v1/posts - Request body:', { did, text: text?.substring(0, 50), parentHash, hasEmbeds: !!embeds });
+      
       if (!did) {
+        console.error('[Gateway] POST /api/v1/posts - Missing did');
         return res.status(400).json({ error: 'did is required' });
       }
       if (!did.startsWith('did:daemon:')) {
+        console.error('[Gateway] POST /api/v1/posts - Invalid did format:', did);
         return res.status(400).json({ error: 'Invalid did format. Expected did:daemon:${fid}' });
       }
+      if (!text || text.trim().length === 0) {
+        console.error('[Gateway] POST /api/v1/posts - Missing or empty text');
+        return res.status(400).json({ error: 'text is required and cannot be empty' });
+      }
+      
+      console.log('[Gateway] POST /api/v1/posts - Creating post for did:', did);
       const result = await gatewayService.createPost(did, text, parentHash, embeds);
+      console.log('[Gateway] POST /api/v1/posts - Post created successfully:', result.hash);
       res.json(result);
     } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      console.error('[Gateway] POST /api/v1/posts - Error:', errorMessage);
+      if (errorStack) {
+        console.error('[Gateway] POST /api/v1/posts - Stack:', errorStack);
+      }
+      res.status(400).json({ error: errorMessage });
     }
   });
 
   protectedRoutes.get('/api/v1/posts/:hash', async (req, res) => {
     try {
-      const post = await gatewayService.getPost(req.params.hash);
+      const { did } = req.query;
+      const userDid = typeof did === 'string' ? did : null;
+      const post = await gatewayService.getPost(req.params.hash, userDid);
       if (!post) {
         return res.status(404).json({ error: 'Post not found' });
       }
@@ -177,6 +196,51 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
       }
       const result = await gatewayService.createReaction(did, targetHash, type);
       res.json(result);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  // Vote endpoints
+  protectedRoutes.post('/api/v1/posts/:hash/vote', async (req, res) => {
+    try {
+      const { hash } = req.params;
+      const { did, voteType } = req.body;
+      
+      if (!did) {
+        return res.status(400).json({ error: 'did is required' });
+      }
+      if (!voteType || (voteType !== 'UP' && voteType !== 'DOWN')) {
+        return res.status(400).json({ error: 'voteType must be UP or DOWN' });
+      }
+      
+      const result = await gatewayService.createVote(did, hash, 'post', voteType);
+      
+      // Return updated vote counts
+      const votes = await gatewayService.getPostVotes(hash);
+      res.json({ ...result, votes });
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  protectedRoutes.post('/api/v1/comments/:hash/vote', async (req, res) => {
+    try {
+      const { hash } = req.params;
+      const { did, voteType } = req.body;
+      
+      if (!did) {
+        return res.status(400).json({ error: 'did is required' });
+      }
+      if (!voteType || (voteType !== 'UP' && voteType !== 'DOWN')) {
+        return res.status(400).json({ error: 'voteType must be UP or DOWN' });
+      }
+      
+      const result = await gatewayService.createVote(did, hash, 'comment', voteType);
+      
+      // Return updated vote counts
+      const votes = await gatewayService.getPostVotes(hash);
+      res.json({ ...result, votes });
     } catch (error) {
       res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }

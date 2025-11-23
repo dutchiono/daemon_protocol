@@ -6,7 +6,7 @@
 import pg from 'pg';
 // import Redis from 'redis'; // Optional - comment out if not installed
 import type { Config } from './config.js';
-import type { Post, Profile, Reaction } from './types.js';
+import type { Post, Profile, Reaction, Vote } from './types.js';
 import { didToFid, fidToDid } from './did-utils.js';
 
 const { Pool } = pg;
@@ -130,37 +130,55 @@ export class AggregationLayer {
     parentHash?: string,
     embeds?: any[]
   ): Promise<Post> {
+    console.log('[AggregationLayer] createPost - Starting for did:', did);
+    
     // Convert did to fid for getUserPDS
-    const fid = didToFid(did);
+    let fid: number;
+    try {
+      fid = didToFid(did);
+      console.log('[AggregationLayer] createPost - Converted did to fid:', fid);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Invalid DID format';
+      console.error('[AggregationLayer] createPost - Failed to convert did to fid:', errorMessage);
+      throw new Error(errorMessage);
+    }
 
     // Create post via user's PDS
     // Find user's PDS
     const userPds = await this.getUserPDS(fid);
+    console.log('[AggregationLayer] createPost - User PDS:', userPds);
 
     if (!userPds) {
+      console.error('[AggregationLayer] createPost - PDS_ENDPOINTS not configured. Available endpoints:', this.pdsEndpoints);
       throw new Error('User PDS not found. Please ensure PDS_ENDPOINTS is configured.');
     }
 
     // Create post on PDS
     // Gateway makes server-side requests directly to PDS
+    const requestBody = {
+      repo: did,
+      collection: 'app.bsky.feed.post',
+      record: {
+        $type: 'app.bsky.feed.post',
+        text,
+        createdAt: new Date().toISOString(),
+        reply: parentHash ? { root: { uri: parentHash } } : undefined,
+        embed: embeds?.[0]
+      }
+    };
+    
+    console.log('[AggregationLayer] createPost - Requesting PDS:', `${userPds}/xrpc/com.atproto.repo.createRecord`);
+    console.log('[AggregationLayer] createPost - Request body:', JSON.stringify(requestBody, null, 2));
+    
     const response = await fetch(`${userPds}/xrpc/com.atproto.repo.createRecord`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        repo: did,
-        collection: 'app.bsky.feed.post',
-        record: {
-          $type: 'app.bsky.feed.post',
-          text,
-          createdAt: new Date().toISOString(),
-          reply: parentHash ? { root: { uri: parentHash } } : undefined,
-          embed: embeds?.[0]
-        }
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('[AggregationLayer] createPost - PDS error response:', response.status, errorText);
       let errorMessage = 'Failed to create post on PDS';
       try {
         const errorJson = JSON.parse(errorText);
@@ -535,6 +553,158 @@ export class AggregationLayer {
       did: fidToDid(fid),
       timestamp: Math.floor(Date.now() / 1000)
     };
+  }
+
+  // Vote methods
+  async createVote(
+    did: string,
+    targetHash: string,
+    targetType: 'post' | 'comment',
+    voteType: 'UP' | 'DOWN'
+  ): Promise<Vote> {
+    // Check if user has already voted
+    const existingVote = await this.db.query(
+      `SELECT vote_type FROM votes WHERE did = $1 AND target_hash = $2`,
+      [did, targetHash]
+    );
+
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    if (existingVote.rows.length > 0) {
+      const existingVoteType = existingVote.rows[0].vote_type;
+
+      // If voting the same way, remove the vote
+      if (existingVoteType === voteType) {
+        await this.db.query(
+          `DELETE FROM votes WHERE did = $1 AND target_hash = $2`,
+          [did, targetHash]
+        );
+
+        // Invalidate vote cache
+        if (this.redis) {
+          await this.redis.del(`votes:${targetHash}`);
+          await this.redis.del(`vote:${did}:${targetHash}`);
+        }
+
+        // Return null vote (removed)
+        return {
+          did,
+          targetHash,
+          targetType,
+          voteType: 'UP', // placeholder, vote was removed
+          timestamp
+        };
+      } else {
+        // Change vote type
+        await this.db.query(
+          `UPDATE votes SET vote_type = $1, timestamp = $2 WHERE did = $3 AND target_hash = $4`,
+          [voteType, timestamp, did, targetHash]
+        );
+      }
+    } else {
+      // Create new vote
+      await this.db.query(
+        `INSERT INTO votes (did, target_hash, target_type, vote_type, timestamp)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [did, targetHash, targetType, voteType, timestamp]
+      );
+    }
+
+    // Invalidate vote cache
+    if (this.redis) {
+      await this.redis.del(`votes:${targetHash}`);
+      await this.redis.del(`vote:${did}:${targetHash}`);
+    }
+
+    return {
+      did,
+      targetHash,
+      targetType,
+      voteType,
+      timestamp
+    };
+  }
+
+  async getPostVotes(targetHash: string): Promise<{
+    voteCount: number;
+    upvoteCount: number;
+    downvoteCount: number;
+  }> {
+    // Check cache first
+    if (this.redis) {
+      const cached = await this.redis.get(`votes:${targetHash}`);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    }
+
+    // Query database
+    const result = await this.db.query(
+      `SELECT 
+        COUNT(*) FILTER (WHERE vote_type = 'UP') as upvotes,
+        COUNT(*) FILTER (WHERE vote_type = 'DOWN') as downvotes
+       FROM votes
+       WHERE target_hash = $1`,
+      [targetHash]
+    );
+
+    const upvoteCount = parseInt(result.rows[0]?.upvotes || '0');
+    const downvoteCount = parseInt(result.rows[0]?.downvotes || '0');
+    const voteCount = upvoteCount - downvoteCount;
+
+    const voteData = { voteCount, upvoteCount, downvoteCount };
+
+    // Cache result (30 min)
+    if (this.redis) {
+      await this.redis.setEx(`votes:${targetHash}`, 1800, JSON.stringify(voteData));
+    }
+
+    return voteData;
+  }
+
+  async getUserVote(did: string, targetHash: string): Promise<'UP' | 'DOWN' | null> {
+    // Check cache first
+    if (this.redis) {
+      const cached = await this.redis.get(`vote:${did}:${targetHash}`);
+      if (cached) {
+        return cached === 'null' ? null : (cached as 'UP' | 'DOWN');
+      }
+    }
+
+    // Query database
+    const result = await this.db.query(
+      `SELECT vote_type FROM votes WHERE did = $1 AND target_hash = $2`,
+      [did, targetHash]
+    );
+
+    const voteType = result.rows[0]?.vote_type || null;
+
+    // Cache result (30 min)
+    if (this.redis) {
+      await this.redis.setEx(`vote:${did}:${targetHash}`, 1800, voteType || 'null');
+    }
+
+    return voteType;
+  }
+
+  async enrichPostWithVotes(post: Post, userDid?: string | null): Promise<Post> {
+    const votes = await this.getPostVotes(post.hash);
+    const currentVote = userDid ? await this.getUserVote(userDid, post.hash) : null;
+
+    return {
+      ...post,
+      voteCount: votes.voteCount,
+      upvoteCount: votes.upvoteCount,
+      downvoteCount: votes.downvoteCount,
+      currentVote
+    };
+  }
+
+  async enrichPostsWithVotes(posts: Post[], userDid?: string | null): Promise<Post[]> {
+    // Enrich all posts with votes in parallel
+    return Promise.all(
+      posts.map(post => this.enrichPostWithVotes(post, userDid))
+    );
   }
 
   async searchPosts(query: string, limit: number): Promise<Post[]> {
