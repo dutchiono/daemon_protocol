@@ -40,7 +40,10 @@ echo ""
 
 # 3. Clean builds - AGGRESSIVE CLEAN
 echo "3️⃣  Cleaning old builds..."
-# Remove all .d.ts files from src directories FIRST (before anything else)
+# Remove all compiled artifacts from src directories FIRST (before anything else)
+# This includes .js, .js.map, .d.ts, and .d.ts.map files
+find social-network -path "*/src/*.js" -type f -delete 2>/dev/null || true
+find social-network -path "*/src/*.js.map" -type f -delete 2>/dev/null || true
 find social-network -path "*/src/*.d.ts" -type f -delete 2>/dev/null || true
 find social-network -path "*/src/*.d.ts.map" -type f -delete 2>/dev/null || true
 # Now clean each service
@@ -50,8 +53,11 @@ cd social-network/gateway && rm -rf dist node_modules .tsbuildinfo && cd ../..
 cd daemon-client && rm -rf dist node_modules && cd ..
 # Double-check dist is gone
 find social-network -name "dist" -type d -exec rm -rf {} + 2>/dev/null || true
-# Final pass - remove any remaining .d.ts files
+# Final pass - remove any remaining compiled artifacts from src
+find social-network -path "*/src/*.js" -type f -delete 2>/dev/null || true
+find social-network -path "*/src/*.js.map" -type f -delete 2>/dev/null || true
 find social-network -path "*/src/*.d.ts" -type f -delete 2>/dev/null || true
+find social-network -path "*/src/*.d.ts.map" -type f -delete 2>/dev/null || true
 echo "   ✅ Cleaned"
 echo ""
 
@@ -122,7 +128,9 @@ fi
 cd ../..
 
 cd social-network/gateway
-# CRITICAL: Remove any .d.ts files in src before building
+# CRITICAL: Remove any compiled artifacts in src before building
+find src -name "*.js" -type f -delete 2>/dev/null || true
+find src -name "*.js.map" -type f -delete 2>/dev/null || true
 find src -name "*.d.ts" -type f -delete 2>/dev/null || true
 find src -name "*.d.ts.map" -type f -delete 2>/dev/null || true
 # Verify types.ts has Vote export BEFORE building (use more flexible grep)
@@ -160,11 +168,26 @@ fi
 if grep -q "app\.get('/api/v1/profile/:fid" dist/index.js || grep -q "app\.put('/api/v1/profile/:fid" dist/index.js; then
   echo "   ❌ Gateway still using old :fid routes - forcing rebuild..."
   rm -rf dist .tsbuildinfo
+  # Remove any .js files from src that might be interfering
+  find src -name "*.js" -type f -delete 2>/dev/null || true
   npm run build
   # Verify again after rebuild
   if grep -q "app\.get('/api/v1/profile/:fid" dist/index.js || grep -q "app\.put('/api/v1/profile/:fid" dist/index.js; then
     echo "   ❌ Gateway STILL has :fid routes after rebuild - checking source..."
     grep -n "profile/:fid" src/index.ts || echo "   Source looks correct, but compiled output is wrong"
+    exit 1
+  fi
+fi
+# Verify Gateway uses app.daemon.* not app.bsky.*
+if grep -q "app\.bsky\.feed\.post" dist/aggregation-layer.js || grep -q "app\.bsky\.graph\.follow" dist/aggregation-layer.js; then
+  echo "   ❌ Gateway still using app.bsky.* collections - forcing rebuild..."
+  rm -rf dist .tsbuildinfo
+  find src -name "*.js" -type f -delete 2>/dev/null || true
+  npm run build
+  # Verify again after rebuild
+  if grep -q "app\.bsky\.feed\.post" dist/aggregation-layer.js || grep -q "app\.bsky\.graph\.follow" dist/aggregation-layer.js; then
+    echo "   ❌ Gateway STILL has app.bsky.* after rebuild - checking source..."
+    grep -n "app\.bsky" src/aggregation-layer.ts || echo "   Source looks correct (app.daemon.*), but compiled output is wrong"
     exit 1
   fi
 fi
