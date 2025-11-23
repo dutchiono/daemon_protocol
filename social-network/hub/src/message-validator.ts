@@ -29,7 +29,7 @@ export class MessageValidator {
       );
       logger.info(`IdRegistry contract initialized at ${process.env.ID_REGISTRY_ADDRESS}`);
     } else {
-      logger.warn('ID_REGISTRY_ADDRESS not set. FID verification will be skipped.');
+      logger.warn('ID_REGISTRY_ADDRESS not set. DID verification will be skipped.');
     }
 
     // Initialize KeyRegistry contract if address is provided
@@ -47,7 +47,7 @@ export class MessageValidator {
 
   async validate(message: Message): Promise<ValidationResult> {
     // Check message structure
-    if (!message.hash || !message.fid || !message.text || !message.timestamp) {
+    if (!message.hash || !message.did || !message.text || !message.timestamp) {
       return { valid: false, error: 'Missing required fields' };
     }
 
@@ -57,10 +57,10 @@ export class MessageValidator {
       return { valid: false, error: 'Invalid message hash' };
     }
 
-    // Check FID exists on-chain
-    const fidExists = await this.verifyFid(message.fid);
-    if (!fidExists) {
-      return { valid: false, error: 'FID does not exist' };
+    // Check DID is valid (extract numeric ID and verify on-chain)
+    const didValid = await this.verifyDid(message.did);
+    if (!didValid) {
+      return { valid: false, error: 'DID does not exist or is invalid' };
     }
 
     // Verify signature
@@ -97,7 +97,7 @@ export class MessageValidator {
   private calculateHash(message: Message): string {
     // Hash message content (excluding hash and signature)
     const content = JSON.stringify({
-      fid: message.fid,
+      did: message.did,
       text: message.text,
       timestamp: message.timestamp,
       parentHash: message.parentHash,
@@ -108,16 +108,30 @@ export class MessageValidator {
     return ethers.keccak256(ethers.toUtf8Bytes(content));
   }
 
-  private async verifyFid(fid: number): Promise<boolean> {
+  private async verifyDid(did: string): Promise<boolean> {
     if (!this.idRegistry) {
-      logger.warn('IdRegistry not initialized. Skipping FID verification.');
+      logger.warn('IdRegistry not initialized. Skipping DID verification.');
       return true; // Allow if contract not set (for testing)
     }
 
+    // Extract numeric ID from DID: did:daemon:123 -> 123
+    const match = did.match(/^did:daemon:(\d+)$/);
+    if (!match || !match[1]) {
+      logger.warn(`Invalid DID format: ${did}`);
+      return false;
+    }
+
+    const numericId = parseInt(match[1], 10);
+    if (isNaN(numericId) || numericId <= 0) {
+      logger.warn(`Invalid numeric ID in DID: ${did}`);
+      return false;
+    }
+
     try {
-      return await this.idRegistry.fidExists(fid);
+      // Check if the numeric ID exists in the IdRegistry contract
+      return await this.idRegistry.fidExists(numericId);
     } catch (error) {
-      logger.error(`Error verifying FID ${fid} on-chain: ${error}`);
+      logger.error(`Error verifying DID ${did} (numeric ID: ${numericId}) on-chain: ${error}`);
       return false;
     }
   }
@@ -132,7 +146,7 @@ export class MessageValidator {
       // Check if key is valid in KeyRegistry
       const isValid = await this.keyRegistry.isValidKey(message.signingKey);
       if (!isValid) {
-        logger.warn(`Signing key ${message.signingKey} is not valid for FID ${message.fid}`);
+        logger.warn(`Signing key ${message.signingKey} is not valid for DID ${message.did}`);
         return false;
       }
 
