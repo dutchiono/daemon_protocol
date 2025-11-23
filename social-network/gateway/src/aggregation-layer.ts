@@ -268,6 +268,20 @@ export class AggregationLayer {
       website?: string;
     }
   ): Promise<Profile> {
+    // First, ensure the user exists in the users table
+    const userCheck = await this.db.query(
+      `SELECT fid FROM users WHERE fid = $1`,
+      [fid]
+    );
+
+    if (userCheck.rows.length === 0) {
+      // Create user if it doesn't exist
+      await this.db.query(
+        `INSERT INTO users (fid, created_at) VALUES ($1, NOW()) ON CONFLICT (fid) DO NOTHING`,
+        [fid]
+      );
+    }
+
     // Build update query dynamically
     const updateFields: string[] = [];
     const values: any[] = [];
