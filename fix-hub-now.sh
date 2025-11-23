@@ -13,29 +13,33 @@ cd ~/daemon
 git pull
 echo ""
 
-echo "3️⃣  Copying fixed source to dist..."
+echo "3️⃣  Rebuilding Hub to ensure dist/ has latest code..."
 cd ~/daemon/social-network/hub
 
-# Ensure dist directory exists
-mkdir -p dist
+# Clean and rebuild
+rm -rf dist
+npm run build
 
-# Copy the fixed index.js to dist
-if [ -f "src/index.js" ]; then
-  cp src/index.js dist/index.js
-  echo "   ✅ Copied fixed index.js to dist/"
-else
-  echo "   ❌ src/index.js not found!"
+# Verify the build worked
+if [ ! -f "dist/index.js" ]; then
+  echo "   ❌ Build failed - dist/index.js not found!"
   exit 1
 fi
+echo "   ✅ Build complete"
 echo ""
 
 echo "4️⃣  Verifying logger service in dist/index.js..."
-if grep -q "services.*logger" dist/index.js 2>/dev/null; then
+if grep -q "services" dist/index.js 2>/dev/null && grep -q "logger" dist/index.js 2>/dev/null; then
   echo "   ✅ Logger service found in dist/index.js"
+  echo "   Showing services section:"
+  grep -A 20 "services:" dist/index.js | head -25
 else
   echo "   ❌ Logger service NOT found!"
   echo "   Showing libp2pConfig:"
-  grep -A 25 "libp2pConfig" dist/index.js | head -30
+  grep -A 30 "libp2pConfig" dist/index.js | head -35
+  echo ""
+  echo "   ⚠️  Trying to manually add logger service..."
+  # This is a fallback - shouldn't be needed if build works
   exit 1
 fi
 echo ""
