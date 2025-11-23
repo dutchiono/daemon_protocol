@@ -7,7 +7,7 @@ import './PostFeed.css';
 
 interface PostFeedProps {
   did: string | null;
-  feedType?: 'hot' | 'top' | 'new' | 'algorithmic';
+  feedType?: 'hot' | 'top' | 'new' | 'algorithmic' | 'global';
 }
 
 const POSTS_PER_PAGE = 25;
@@ -31,7 +31,7 @@ export default function PostFeed({ did, feedType = 'hot' }: PostFeedProps) {
     getNextPageParam: (lastPage) => {
       return lastPage.cursor || undefined;
     },
-    enabled: did !== null,
+    enabled: did !== null || feedType === 'global',
     initialPageParam: undefined,
   });
 

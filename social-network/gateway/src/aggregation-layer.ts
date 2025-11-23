@@ -157,6 +157,116 @@ export class AggregationLayer {
 
         return enrichedPosts.slice(0, limit);
     }
+
+    async getAllPosts(type: string, limit: number, cursor?: string) {
+        // Get all posts from database (most reliable source for global feed)
+        const posts: any[] = [];
+
+        if (this.db) {
+            try {
+                // Query database for all top-level posts (not replies)
+                const result = await this.db.query(`
+                    SELECT hash, did, text, timestamp, message_type, parent_hash, embeds
+                    FROM messages
+                    WHERE deleted = false AND parent_hash IS NULL
+                    ORDER BY timestamp DESC
+                    LIMIT $1
+                `, [limit * 2]); // Get more to account for deduplication
+
+                for (const row of result.rows) {
+                    posts.push({
+                        hash: row.hash,
+                        did: row.did,
+                        text: row.text,
+                        timestamp: parseInt(row.timestamp),
+                        messageType: row.message_type || 'post',
+                        parentHash: row.parent_hash || undefined,
+                        embeds: row.embeds || []
+                    });
+                }
+            } catch (error) {
+                console.error(`[AggregationLayer] Failed to query database for all posts:`, error);
+            }
+        }
+
+        // Also try to get posts from PDS (query all known users)
+        if (this.pdsEndpoints && this.pdsEndpoints.length > 0 && this.db) {
+            try {
+                // Get all DIDs from profiles table
+                const profileResult = await this.db.query(`SELECT DISTINCT did FROM profiles LIMIT 100`);
+                const allDids = profileResult.rows.map(row => row.did);
+
+                if (allDids.length > 0) {
+                    const userPds = this.pdsEndpoints[0];
+                    for (const did of allDids) {
+                        try {
+                            const response = await fetch(`${userPds}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(did)}&collection=app.daemon.feed.post&limit=${limit}`);
+                            if (response.ok) {
+                                const data: any = await response.json();
+                                if (data.records && Array.isArray(data.records)) {
+                                    for (const record of data.records) {
+                                        const recordData = record.value || record;
+                                        if (recordData && recordData.text) {
+                                            const hash = record.uri || `at://${did}/app.daemon.feed.post/${new Date(recordData.createdAt).getTime()}`;
+                                            const parentHash = recordData.reply?.parent?.uri || recordData.reply?.root?.uri || undefined;
+
+                                            // Only add top-level posts (not replies)
+                                            if (!parentHash) {
+                                                // Check if already in posts (avoid duplicates)
+                                                if (!posts.find(p => p.hash === hash)) {
+                                                    posts.push({
+                                                        hash: hash,
+                                                        did: did,
+                                                        text: recordData.text,
+                                                        timestamp: new Date(recordData.createdAt).getTime() / 1000,
+                                                        messageType: 'post',
+                                                        parentHash: undefined,
+                                                        embeds: recordData.embed ? [recordData.embed] : []
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            // Continue with other users
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error(`[AggregationLayer] Failed to get all posts from PDS:`, error);
+            }
+        }
+
+        // Deduplicate
+        const uniquePosts = this.deduplicatePosts(posts);
+
+        // Enrich with usernames
+        const uniqueDids = [...new Set(uniquePosts.map(p => p.did))];
+        const profilePromises = uniqueDids.map(did =>
+            this.getProfile(did).catch(() => null)
+        );
+        const profiles = await Promise.all(profilePromises);
+
+        const didToUsername = new Map<string, string | undefined>();
+        profiles.forEach((profile, index) => {
+            if (profile) {
+                didToUsername.set(uniqueDids[index], profile.username);
+            }
+        });
+
+        const enrichedPosts = uniquePosts.map(post => ({
+            ...post,
+            username: didToUsername.get(post.did)
+        }));
+
+        // Sort by timestamp (newest first)
+        enrichedPosts.sort((a, b) => b.timestamp - a.timestamp);
+
+        return enrichedPosts.slice(0, limit);
+    }
+
     async createPost(did: string, text: string, parentHash?: string, embeds?: any[]) {
         // Use DID directly - no conversion needed
 
@@ -399,6 +509,109 @@ export class AggregationLayer {
             }
         }
         return null;
+    }
+
+    async getReplies(postHash: string) {
+        const replies: any[] = [];
+
+        // Query PDS for all posts with this parentHash
+        // We need to query all users' PDS instances to find replies
+        // For now, query the first PDS and search across all repos
+        if (this.pdsEndpoints && this.pdsEndpoints.length > 0) {
+            const userPds = this.pdsEndpoints[0];
+
+            try {
+                // Query PDS for all posts - we'll filter by parentHash
+                // Since we can't query by parentHash directly, we'll need to get all posts and filter
+                // For efficiency, we could query specific users, but for now get a larger set
+                const response = await fetch(`${userPds}/xrpc/com.atproto.repo.listRecords?collection=app.daemon.feed.post&limit=500`);
+                if (response.ok) {
+                    const data: any = await response.json();
+                    if (data.records && Array.isArray(data.records)) {
+                        for (const record of data.records) {
+                            const recordData = record.value || record;
+                            if (recordData && recordData.text) {
+                                // Extract parentHash from reply data
+                                const parentHash = recordData.reply?.parent?.uri || recordData.reply?.root?.uri || undefined;
+
+                                // If this post is a reply to the target post
+                                if (parentHash === postHash) {
+                                    const hash = record.uri || `at://${recordData.did || 'unknown'}/app.daemon.feed.post/${new Date(recordData.createdAt).getTime()}`;
+                                    const did = recordData.did || hash.split('/')[2]?.replace('did:', '') || 'unknown';
+
+                                    replies.push({
+                                        hash: hash,
+                                        did: did,
+                                        text: recordData.text,
+                                        timestamp: new Date(recordData.createdAt).getTime() / 1000,
+                                        messageType: 'reply',
+                                        parentHash: parentHash,
+                                        embeds: recordData.embed ? [recordData.embed] : []
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error(`[AggregationLayer] Failed to query PDS for replies:`, error);
+            }
+        }
+
+        // Also check database for replies stored there
+        if (this.db) {
+            try {
+                const result = await this.db.query(`
+                    SELECT hash, did, text, timestamp, message_type, parent_hash, embeds
+                    FROM messages
+                    WHERE parent_hash = $1 AND deleted = false
+                    ORDER BY timestamp DESC
+                    LIMIT 100
+                `, [postHash]);
+
+                for (const row of result.rows) {
+                    // Only add if not already in replies (avoid duplicates)
+                    if (!replies.find(r => r.hash === row.hash)) {
+                        replies.push({
+                            hash: row.hash,
+                            did: row.did,
+                            text: row.text,
+                            timestamp: parseInt(row.timestamp),
+                            messageType: row.message_type || 'reply',
+                            parentHash: row.parent_hash,
+                            embeds: row.embeds || []
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error(`[AggregationLayer] Failed to query database for replies:`, error);
+            }
+        }
+
+        // Enrich replies with usernames from profiles
+        const uniqueDids = [...new Set(replies.map(r => r.did))];
+        const profilePromises = uniqueDids.map(did =>
+            this.getProfile(did).catch(() => null)
+        );
+        const profiles = await Promise.all(profilePromises);
+
+        const didToUsername = new Map<string, string | undefined>();
+        profiles.forEach((profile, index) => {
+            if (profile) {
+                didToUsername.set(uniqueDids[index], profile.username);
+            }
+        });
+
+        // Add usernames to replies
+        const enrichedReplies = replies.map(reply => ({
+            ...reply,
+            username: didToUsername.get(reply.did)
+        }));
+
+        // Sort by timestamp (newest first)
+        enrichedReplies.sort((a, b) => b.timestamp - a.timestamp);
+
+        return enrichedReplies;
     }
     async getProfile(did: string) {
         // Check cache

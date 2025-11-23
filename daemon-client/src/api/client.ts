@@ -69,7 +69,7 @@ export async function createPost(did: string, text: string, parentHash?: string)
 }
 
 export async function getPost(hash: string) {
-  const response = await axios.get(`${API_URL}/api/v1/posts/${hash}`);
+  const response = await axios.get(`${API_URL}/api/v1/posts/${encodeURIComponent(hash)}`);
   return response.data;
 }
 
@@ -114,7 +114,7 @@ export async function repostPost(did: string, targetHash: string) {
 }
 
 export async function votePost(did: string, postHash: string, voteType: 'UP' | 'DOWN') {
-  const response = await axios.post(`${API_URL}/api/v1/posts/${postHash}/vote`, {
+  const response = await axios.post(`${API_URL}/api/v1/posts/${encodeURIComponent(postHash)}/vote`, {
     did,
     voteType
   }, {
@@ -124,7 +124,7 @@ export async function votePost(did: string, postHash: string, voteType: 'UP' | '
 }
 
 export async function voteComment(did: string, commentHash: string, voteType: 'UP' | 'DOWN') {
-  const response = await axios.post(`${API_URL}/api/v1/comments/${commentHash}/vote`, {
+  const response = await axios.post(`${API_URL}/api/v1/comments/${encodeURIComponent(commentHash)}/vote`, {
     did,
     voteType
   }, {
@@ -143,7 +143,7 @@ export async function getReactions(postHash: string, did?: string | null) {
     if (!did) {
       return { liked: false, reposted: false };
     }
-    const response = await axios.get(`${API_URL}/api/v1/posts/${postHash}/reactions`, {
+    const response = await axios.get(`${API_URL}/api/v1/posts/${encodeURIComponent(postHash)}/reactions`, {
       params: { did },
       timeout: 10000
     });
@@ -248,6 +248,20 @@ export async function getFollows(did: string) {
       return { follows: [] };
     }
     return { follows: [] };
+  }
+}
+
+export async function getReplies(postHash: string) {
+  try {
+    const response = await axios.get(`${API_URL}/api/v1/posts/${encodeURIComponent(postHash)}/replies`, {
+      timeout: 10000
+    });
+    return response.data;
+  } catch (error: any) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
+      return { replies: [] };
+    }
+    return { replies: [] };
   }
 }
 

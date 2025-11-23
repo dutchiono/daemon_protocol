@@ -24,9 +24,22 @@ export class GatewayService {
     cursor?: string
   ): Promise<Feed> {
     try {
-      // If did is null or empty, return empty feed or general feed
+      // If type is 'global' or 'all', show all posts from everyone
+      if (type === 'global' || type === 'all') {
+        const posts = await this.aggregationLayer.getAllPosts(type, limit, cursor);
+        const enrichedPosts = did ? await this.aggregationLayer.enrichPostsWithVotes(posts, did) : posts;
+
+        // Rank posts algorithmically
+        const rankedPosts = await this.rankPostsAlgorithmically(enrichedPosts, did || '', type);
+
+        return {
+          posts: rankedPosts.slice(0, limit),
+          cursor: rankedPosts.length > limit ? rankedPosts[limit - 1].hash : undefined
+        };
+      }
+
+      // If did is null or empty, return empty feed
       if (!did) {
-        // Return empty feed for now - could be extended to show general feed
         return { posts: [], cursor: undefined };
       }
 
@@ -78,6 +91,10 @@ export class GatewayService {
   async getPost(hash: string, userDid?: string | null): Promise<Post | null> {
     // getPost now handles vote enrichment internally if userDid is provided
     return await this.aggregationLayer.getPost(hash, userDid);
+  }
+
+  async getReplies(postHash: string): Promise<Post[]> {
+    return await this.aggregationLayer.getReplies(postHash);
   }
 
   async getPostsByUser(did: string, limit: number, cursor?: string): Promise<Post[]> {

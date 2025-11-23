@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getFeed } from '../api/client';
+import { getReplies } from '../api/client';
 import ReplyVotes from './ReplyVotes';
 import './RepliesSection.css';
 
@@ -22,29 +22,13 @@ interface RepliesSectionProps {
 }
 
 export default function RepliesSection({ postHash }: RepliesSectionProps) {
-  // Fetch replies for this post
+  // Fetch replies for this post using dedicated endpoint
   const { data, isLoading } = useQuery({
     queryKey: ['replies', postHash],
     queryFn: async () => {
       try {
-        // Get all posts, filter for ones with parentHash matching this post
-        const feedData = await getFeed(null, 'new', 200);
-        const allPosts = feedData.posts || [];
-
-        // Filter for replies (posts with this postHash as parentHash)
-        const replies = allPosts.filter(
-          (post: ReplyData) => post.parentHash === postHash
-        ) as ReplyData[];
-
-        // Sort by vote count (highest first), then by timestamp (newest first)
-        const sorted = replies.sort((a: ReplyData, b: ReplyData) => {
-          const aVotes = a.voteCount || 0;
-          const bVotes = b.voteCount || 0;
-          if (aVotes !== bVotes) return bVotes - aVotes;
-          return b.timestamp - a.timestamp;
-        });
-
-        return sorted;
+        const response = await getReplies(postHash);
+        return response.replies || [];
       } catch (error) {
         console.error('Error fetching replies:', error);
         return [];

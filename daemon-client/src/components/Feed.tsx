@@ -6,7 +6,7 @@ interface FeedProps {
   did: string | null;
 }
 
-type FeedType = 'hot' | 'top' | 'new' | 'algorithmic';
+type FeedType = 'hot' | 'top' | 'new' | 'algorithmic' | 'global';
 
 export default function Feed({ did }: FeedProps) {
   const [feedType, setFeedType] = useState<FeedType>('hot');
@@ -39,6 +39,12 @@ export default function Feed({ did }: FeedProps) {
             onClick={() => setFeedType('algorithmic')}
           >
             For You
+          </button>
+          <button
+            className={`feed-type-btn ${feedType === 'global' ? 'active' : ''}`}
+            onClick={() => setFeedType('global')}
+          >
+            All
           </button>
         </div>
       </div>

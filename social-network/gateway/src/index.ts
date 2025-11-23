@@ -93,11 +93,25 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
     try {
       const { did } = req.query;
       const userDid = typeof did === 'string' ? did : null;
-      const post = await gatewayService.getPost(req.params.hash, userDid);
+      // Express automatically URL-decodes route parameters
+      const hash = decodeURIComponent(req.params.hash);
+      const post = await gatewayService.getPost(hash, userDid);
       if (!post) {
         return res.status(404).json({ error: 'Post not found' });
       }
       res.json(post);
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  // Get replies for a post
+  protectedRoutes.get('/api/v1/posts/:hash/replies', async (req, res) => {
+    try {
+      // Express automatically URL-decodes route parameters, but decode explicitly to be safe
+      const hash = decodeURIComponent(req.params.hash);
+      const replies = await gatewayService.getReplies(hash);
+      res.json({ replies });
     } catch (error) {
       res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
@@ -240,7 +254,8 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
   // Vote endpoints
   protectedRoutes.post('/api/v1/posts/:hash/vote', async (req, res) => {
     try {
-      const { hash } = req.params;
+      // Express automatically URL-decodes route parameters, but decode explicitly to be safe
+      const hash = decodeURIComponent(req.params.hash);
       const { did, voteType } = req.body;
 
       if (!did) {
@@ -262,7 +277,8 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
 
   protectedRoutes.post('/api/v1/comments/:hash/vote', async (req, res) => {
     try {
-      const { hash } = req.params;
+      // Express automatically URL-decodes route parameters, but decode explicitly to be safe
+      const hash = decodeURIComponent(req.params.hash);
       const { did, voteType } = req.body;
 
       if (!did) {
@@ -300,7 +316,8 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
   // Get reactions for a post
   protectedRoutes.get('/api/v1/posts/:hash/reactions', async (req, res) => {
     try {
-      const { hash } = req.params;
+      // Express automatically URL-decodes route parameters, but decode explicitly to be safe
+      const hash = decodeURIComponent(req.params.hash);
       const { did } = req.query;
       if (!did || typeof did !== 'string') {
         return res.json({ liked: false, reposted: false });
