@@ -3,12 +3,12 @@
  * @notice HTTP API gateway for client access
  */
 
-import express from 'express';
 import cors from 'cors';
-import { GatewayService } from './gateway-service.js';
-import { x402Middleware } from './x402-middleware.js';
+import express from 'express';
 import { AggregationLayer } from './aggregation-layer.js';
 import type { Config } from './config.js';
+import { GatewayService } from './gateway-service.js';
+import { x402Middleware } from './x402-middleware.js';
 
 const app = express();
 app.use(cors());
