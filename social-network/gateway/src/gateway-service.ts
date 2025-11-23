@@ -116,6 +116,10 @@ export class GatewayService {
     return { success: true };
   }
 
+  async getFollows(did: string): Promise<string[]> {
+    return await this.aggregationLayer.getFollows(did);
+  }
+
   async createReaction(
     did: string,
     targetHash: string,

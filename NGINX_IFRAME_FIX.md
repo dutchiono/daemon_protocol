@@ -37,27 +37,27 @@ sudo systemctl reload nginx
 server {
     listen 443 ssl http2;
     server_name daemon.bushleague.xyz;
-    
+
     # SSL configuration...
-    
+
     # Allow iframe embedding
     add_header X-Frame-Options "ALLOWALL" always;
     add_header Content-Security-Policy "frame-ancestors *;" always;
-    
+
     root /var/www/daemon-client;
     index index.html;
-    
+
     location / {
         try_files $uri $uri/ /index.html;
     }
-    
+
     # ... rest of config
 }
 ```
 
 ## About the Daemon Image Embed
 
-The `daemon.jpg` file is located at `daemon-client/public/daemon.jpg` and is used as the logo in the UI (Sidebar, TopBar). 
+The `daemon.jpg` file is located at `daemon-client/public/daemon.jpg` and is used as the logo in the UI (Sidebar, TopBar).
 
 If you want to use this as a default embed image for posts, you would need to:
 1. Ensure the image is accessible at `https://daemon.bushleague.xyz/daemon.jpg`

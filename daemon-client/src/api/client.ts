@@ -199,3 +199,17 @@ export async function getUserPosts(did: string, limit: number = 50, cursor?: str
   }
 }
 
+export async function getFollows(did: string) {
+  try {
+    const response = await axios.get(`${API_URL}/api/v1/profile/${encodeURIComponent(did)}/follows`, {
+      timeout: 10000
+    });
+    return response.data;
+  } catch (error: any) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
+      return { follows: [] };
+    }
+    return { follows: [] };
+  }
+}
+

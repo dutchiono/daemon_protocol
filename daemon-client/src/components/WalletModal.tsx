@@ -37,7 +37,19 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
   // Otherwise, it's a direct PDS URL and we need to add /xrpc
   const PDS_URL = PDS_BASE.replace(/\/+$/, ''); // Remove trailing slashes
   const needsXrpcPrefix = !PDS_URL.endsWith('/xrpc');
-  const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || 'http://localhost:4003';
+  
+  // Use getBaseUrl() for Gateway URL to auto-detect HTTPS
+  const getGatewayUrl = () => {
+    if (typeof window !== 'undefined') {
+      const protocol = window.location.protocol;
+      const host = window.location.host;
+      if (host.includes('daemon.bushleague.xyz') || host.includes('bushleague.xyz')) {
+        return `${protocol}//${host}`;
+      }
+    }
+    return import.meta.env.VITE_GATEWAY_URL || 'http://localhost:4003';
+  };
+  const GATEWAY_URL = getGatewayUrl();
 
   // Check if user has a profile/username
   const { data: existingProfile, isLoading: checkingProfile } = useQuery({

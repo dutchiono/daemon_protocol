@@ -152,6 +152,23 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
     }
   });
 
+  // Get user's follows
+  app.get('/api/v1/profile/:did/follows', async (req, res) => {
+    try {
+      const did = decodeURIComponent(req.params.did);
+
+      // Validate did format
+      if (!did || !did.startsWith('did:daemon:')) {
+        return res.status(400).json({ error: 'Invalid did format. Expected did:daemon:${fid}' });
+      }
+
+      const follows = await gatewayService.getFollows(did);
+      res.json({ follows: follows.map((followDid) => ({ did: followDid })) });
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
   protectedRoutes.put('/api/v1/profile/:did', async (req, res) => {
     try {
       const did = req.params.did;

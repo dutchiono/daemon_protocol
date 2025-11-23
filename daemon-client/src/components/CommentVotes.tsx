@@ -63,7 +63,7 @@ export default function CommentVotes({
       if (data.votes?.voteCount !== undefined) {
         setVotesAmt(data.votes.voteCount);
       }
-      
+
       // Update current vote
       if (data.voteType) {
         setCurrentVote(data.voteType);

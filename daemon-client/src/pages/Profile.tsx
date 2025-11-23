@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useWallet } from '../wallet/WalletProvider';
-import { getProfile, getUserPosts, followUser, unfollowUser } from '../api/client';
+import { getProfile, getUserPosts, followUser, unfollowUser, getFollows } from '../api/client';
 import Post from '../components/Post';
 import './Profile.css';
 
@@ -37,18 +37,14 @@ export default function Profile() {
     queryKey: ['follow-status', currentUserDid, profileDid],
     queryFn: async () => {
       if (!currentUserDid || !profileDid || isOwnProfile) return false;
-      // For now, we'll check by getting the current user's follows and checking if profileDid is in it
-      // This is a simple implementation - in production you'd want a dedicated endpoint
+      // Check by getting the current user's follows and checking if profileDid is in it
       try {
-        const response = await fetch(`${import.meta.env.VITE_GATEWAY_URL || 'http://localhost:4003'}/api/v1/profile/${encodeURIComponent(currentUserDid)}/follows`);
-        if (response.ok) {
-          const data = await response.json();
-          return data.follows?.some((f: any) => f.did === profileDid) || false;
-        }
+        const data = await getFollows(currentUserDid);
+        return data.follows?.some((f: any) => f.did === profileDid) || false;
       } catch (error) {
         console.error('Error checking follow status:', error);
+        return false;
       }
-      return false;
     },
     enabled: !!currentUserDid && !!profileDid && !isOwnProfile,
     retry: false
