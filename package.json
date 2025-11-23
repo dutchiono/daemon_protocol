@@ -23,8 +23,8 @@
     "deploy:client": "sudo cp -r daemon-client/dist/* /var/www/daemon-client/ && sudo systemctl reload nginx",
     "start:node": "cd daemon-node && npm start all",
     "start:client": "cd daemon-client && npm run electron:dev",
-    "check": "tsx scripts/check-status.ts",
-    "status": "tsx scripts/check-status.ts"
+    "check": "bash scripts/check-reactions.sh",
+    "check-reactions": "bash scripts/check-reactions.sh"
   },
   "devDependencies": {
     "vitest": "^1.1.0",

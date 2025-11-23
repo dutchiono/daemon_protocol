@@ -768,6 +768,12 @@ export class AggregationLayer {
         }
     }
     async createReaction(did: string, targetHash: string, type: 'like' | 'repost' | 'quote'): Promise<Reaction> {
+        // First, verify that the target message exists
+        const messageCheck = await this.db.query(`SELECT hash FROM messages WHERE hash = $1`, [targetHash]);
+        if (messageCheck.rows.length === 0) {
+            throw new Error(`Target message with hash ${targetHash} does not exist`);
+        }
+
         // Store reaction in database - using DID
         await this.db.query(`INSERT INTO reactions (did, target_hash, reaction_type, timestamp, active)
        VALUES ($1, $2, $3, $4, true)
