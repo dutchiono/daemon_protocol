@@ -143,7 +143,8 @@ pm2 start social-network/gateway/dist/index.js --name daemon-gateway --update-en
   --env HUB_ENDPOINTS="$HUB_ENDPOINTS" \
   --env PDS_ENDPOINTS="$PDS_ENDPOINTS" \
   --env REDIS_URL="$REDIS_URL" \
-  --env X402_SERVICE_URL="$X402_SERVICE_URL"
+  --env X402_SERVICE_URL="$X402_SERVICE_URL" \
+  --env RPC_URL="$RPC_URL"
 sleep 3
 
 echo ""

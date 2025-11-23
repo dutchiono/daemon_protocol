@@ -197,6 +197,7 @@ const config: Config = {
   databaseUrl: process.env.DATABASE_URL || '',
   redisUrl: process.env.REDIS_URL || '',
   x402ServiceUrl: process.env.X402_SERVICE_URL || 'http://localhost:3000',
+  rpcUrl: process.env.RPC_URL || '',
 };
 
 // Initialize and start server
