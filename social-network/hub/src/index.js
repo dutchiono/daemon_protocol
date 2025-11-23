@@ -5,13 +5,16 @@
 import express from 'express';
 import { createLibp2p } from 'libp2p';
 import { webSockets } from '@libp2p/websockets';
-import { noise } from '@libp2p/noise';
+import { noise } from '@chainsafe/libp2p-noise';
+import { mplex } from '@libp2p/mplex';
 import { kadDHT } from '@libp2p/kad-dht';
 import { bootstrap } from '@libp2p/bootstrap';
+import { identify } from '@libp2p/identify';
 import { HubService } from './hub-service.js';
 import { MessageValidator } from './message-validator.js';
 import { SyncEngine } from './sync-engine.js';
 import { Database } from './database.js';
+import { logger } from './logger.js';
 const app = express();
 app.use(express.json());
 // Initialize hub
@@ -26,10 +29,32 @@ async function initializeHub(config) {
     }
     const libp2pConfig = {
         addresses: {
-            listen: [`/ip4/0.0.0.0/tcp/${config.port}`]
+            listen: [`/ip4/0.0.0.0/tcp/${config.port}/ws`]
         },
         transports: [webSockets()],
         connectionEncryption: [noise()],
+        streamMuxers: [mplex()],
+        services: {
+            identify: identify(),
+            logger: (components) => ({
+                forComponent: (name) => {
+                    return {
+                        info: (message, ...args) => logger.info(message, { component: name, args }),
+                        error: (message, ...args) => {
+                            if (message instanceof Error) {
+                                logger.error(message.message, { component: name, args, stack: message.stack });
+                            }
+                            else {
+                                logger.error(message, { component: name, args });
+                            }
+                        },
+                        warn: (message, ...args) => logger.warn(message, { component: name, args }),
+                        debug: (message, ...args) => logger.debug(message, { component: name, args }),
+                        trace: (message, ...args) => logger.debug(message, { component: name, args }),
+                    };
+                }
+            })
+        }
     };
     // Add DHT if enabled (default: true)
     if (config.enableDHT !== false) {
