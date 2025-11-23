@@ -7,7 +7,7 @@ import Redis from 'redis';
 import { ethers } from 'ethers';
 import type { Config } from './config.js';
 // Removed didToFid import - using DIDs directly throughout
-import type { Reaction } from './types.js';
+import type { Reaction, Post } from './types.js';
 const { Pool } = pg;
 export class AggregationLayer {
     db;
