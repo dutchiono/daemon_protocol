@@ -1214,6 +1214,53 @@ export class AggregationLayer {
                 LIMIT 50
             `, [did, sevenDaysAgo]);
 
+            const notifications: any[] = [];
+
+            // Process reactions
+            reactionsResult.rows.forEach((row: any) => {
+                notifications.push({
+                    id: `reaction_${row.id}`,
+                    type: row.reaction_type === 'like' ? 'like' : row.reaction_type === 'repost' ? 'repost' : 'reaction',
+                    from: { did: row.from_did },
+                    post: { hash: row.post_hash, text: row.post_text },
+                    timestamp: parseInt(row.timestamp),
+                    read: false
+                });
+            });
+
+            // Process follows
+            followsResult.rows.forEach((row: any) => {
+                notifications.push({
+                    id: `follow_${row.id}`,
+                    type: 'follow',
+                    from: { did: row.from_did },
+                    timestamp: parseInt(row.timestamp),
+                    read: false
+                });
+            });
+
+            // Process replies
+            repliesResult.rows.forEach((row: any) => {
+                notifications.push({
+                    id: `reply_${row.hash}`,
+                    type: 'reply',
+                    from: { did: row.from_did },
+                    post: { hash: row.post_hash, text: row.post_text },
+                    timestamp: parseInt(row.timestamp),
+                    read: false
+                });
+            });
+
+            // Sort by timestamp (newest first)
+            notifications.sort((a, b) => b.timestamp - a.timestamp);
+
+            return { notifications: notifications.slice(0, 50) };
+        } catch (error) {
+            console.error('Error getting notifications:', error);
+            return { notifications: [] };
+        }
+    }
+
     async getRepliesByUser(did: string, limit: number, cursor?: string): Promise<Post[]> {
         // Get posts where this user replied (parent_hash is not null and did matches)
         const posts = await this.getPostsFromUsers([did], 'chronological', limit * 2, cursor);
@@ -1260,53 +1307,6 @@ export class AggregationLayer {
         }
 
         return posts;
-    }
-
-            const notifications: any[] = [];
-
-            // Process reactions
-            reactionsResult.rows.forEach((row: any) => {
-                notifications.push({
-                    id: `reaction_${row.id}`,
-                    type: row.reaction_type === 'like' ? 'like' : row.reaction_type === 'repost' ? 'repost' : 'reaction',
-                    from: { did: row.from_did },
-                    post: { hash: row.post_hash, text: row.post_text },
-                    timestamp: parseInt(row.timestamp),
-                    read: false
-                });
-            });
-
-            // Process follows
-            followsResult.rows.forEach((row: any) => {
-                notifications.push({
-                    id: `follow_${row.id}`,
-                    type: 'follow',
-                    from: { did: row.from_did },
-                    timestamp: parseInt(row.timestamp),
-                    read: false
-                });
-            });
-
-            // Process replies
-            repliesResult.rows.forEach((row: any) => {
-                notifications.push({
-                    id: `reply_${row.hash}`,
-                    type: 'reply',
-                    from: { did: row.from_did },
-                    post: { hash: row.post_hash, text: row.post_text },
-                    timestamp: parseInt(row.timestamp),
-                    read: false
-                });
-            });
-
-            // Sort by timestamp (newest first)
-            notifications.sort((a, b) => b.timestamp - a.timestamp);
-
-            return { notifications: notifications.slice(0, 50) };
-        } catch (error) {
-            console.error('Error getting notifications:', error);
-            return { notifications: [] };
-        }
     }
 
     async getRepostsAndQuotesForFeed(dids: string[], limit: number): Promise<Post[]> {
