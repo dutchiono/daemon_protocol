@@ -217,6 +217,18 @@ export class AggregationLayer {
                     // Continue with retryResult below
                     const result = retryResult;
 
+                    // Calculate hash for Hub submission
+                    const retryTimestamp = Math.floor(Date.now() / 1000);
+                    const retryMessageContent = JSON.stringify({
+                        did: did,
+                        text: text,
+                        timestamp: retryTimestamp,
+                        parentHash: parentHash || null,
+                        mentions: [],
+                        embeds: embeds || []
+                    });
+                    const retryMessageHash = ethers.keccak256(ethers.toUtf8Bytes(retryMessageContent));
+                    
                     // Submit to hubs
                     for (const hubEndpoint of this.hubEndpoints) {
                         try {
@@ -224,11 +236,11 @@ export class AggregationLayer {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    hash: result.uri,
+                                    hash: retryMessageHash,
                                     did: did,
                                     text,
                                     parentHash: parentHash || null,
-                                    timestamp: Math.floor(Date.now() / 1000),
+                                    timestamp: retryTimestamp,
                                     embeds: embeds || []
                                 })
                             });
