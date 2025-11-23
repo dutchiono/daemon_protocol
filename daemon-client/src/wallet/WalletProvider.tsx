@@ -28,14 +28,56 @@ export function WalletProvider({ children, onDidChange }: WalletProviderProps) {
     if (!window.ethereum) return;
 
     try {
+      // First try to get DID from on-chain contract
       const provider = new ethers.BrowserProvider(window.ethereum);
       const numericId = await getFIDFromAddress(provider, walletAddress); // Contract returns numeric ID
-      // Convert numeric ID to full DID format
-      const fullDid = numericId ? `did:daemon:${numericId}` : null;
-      setDid(fullDid);
-      onDidChange?.(fullDid);
+
+      if (numericId) {
+        // Convert numeric ID to full DID format
+        const fullDid = `did:daemon:${numericId}`;
+        setDid(fullDid);
+        onDidChange?.(fullDid);
+        return;
+      }
+
+      // Fallback: Try to get DID from Gateway API (in case contract call failed but user exists)
+      try {
+        const gatewayUrl = import.meta.env.VITE_GATEWAY_URL || 'http://localhost:4003';
+        const response = await fetch(`${gatewayUrl}/api/v1/wallet/${walletAddress}/did`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.did) {
+            setDid(data.did);
+            onDidChange?.(data.did);
+            return;
+          }
+        }
+      } catch (apiError) {
+        console.warn('Gateway API lookup failed, user may need to register:', apiError);
+      }
+
+      // No DID found
+      setDid(null);
+      onDidChange?.(null);
     } catch (error) {
       console.error('Error loading Daemon ID:', error);
+
+      // Try Gateway API as fallback even on error
+      try {
+        const gatewayUrl = import.meta.env.VITE_GATEWAY_URL || 'http://localhost:4003';
+        const response = await fetch(`${gatewayUrl}/api/v1/wallet/${walletAddress}/did`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.did) {
+            setDid(data.did);
+            onDidChange?.(data.did);
+            return;
+          }
+        }
+      } catch (apiError) {
+        console.warn('Gateway API fallback also failed:', apiError);
+      }
+
       setDid(null);
       onDidChange?.(null);
     }

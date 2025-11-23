@@ -104,6 +104,10 @@ export class GatewayService {
     return await this.aggregationLayer.enrichPostsWithVotes(posts, did);
   }
 
+  async getDIDFromAddress(walletAddress: string): Promise<string | null> {
+    return await this.aggregationLayer.getDIDFromAddress(walletAddress);
+  }
+
   async getProfile(did: string): Promise<Profile | null> {
     return await this.aggregationLayer.getProfile(did);
   }

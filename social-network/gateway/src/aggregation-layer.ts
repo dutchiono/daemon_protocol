@@ -369,36 +369,37 @@ export class AggregationLayer {
                     // Continue with retryResult below
                     const result = retryResult;
 
-                    // Calculate hash for Hub submission
-                    const retryTimestamp = Math.floor(Date.now() / 1000);
-                    const retryMessageContent = JSON.stringify({
-                        did: did,
-                        text: text,
-                        timestamp: retryTimestamp,
-                        parentHash: parentHash || null,
-                        mentions: [],
-                        embeds: embeds || []
-                    });
-                    const retryMessageHash = ethers.keccak256(ethers.toUtf8Bytes(retryMessageContent));
+                    // Only submit to hubs for top-level posts (not replies)
+                    if (!parentHash) {
+                        const retryTimestamp = Math.floor(Date.now() / 1000);
+                        const retryMessageContent = JSON.stringify({
+                            did: did,
+                            text: text,
+                            timestamp: retryTimestamp,
+                            parentHash: null,
+                            mentions: [],
+                            embeds: embeds || []
+                        });
+                        const retryMessageHash = ethers.keccak256(ethers.toUtf8Bytes(retryMessageContent));
 
-                    // Submit to hubs
-                    for (const hubEndpoint of this.hubEndpoints) {
-                        try {
-                            await fetch(`${hubEndpoint}/api/v1/messages`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    hash: retryMessageHash,
-                                    did: did,
-                                    text,
-                                    parentHash: parentHash || null,
-                                    timestamp: retryTimestamp,
-                                    embeds: embeds || []
-                                })
-                            });
-                        }
-                        catch (error) {
-                            console.error(`Failed to submit to hub ${hubEndpoint}:`, error);
+                        // Submit to hubs (only for top-level posts)
+                        for (const hubEndpoint of this.hubEndpoints) {
+                            try {
+                                await fetch(`${hubEndpoint}/api/v1/messages`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        hash: retryMessageHash,
+                                        did: did,
+                                        text,
+                                        timestamp: retryTimestamp,
+                                        embeds: embeds || []
+                                    })
+                                });
+                            }
+                            catch (error) {
+                                console.error(`Failed to submit to hub ${hubEndpoint}:`, error);
+                            }
                         }
                     }
                     return {
@@ -429,40 +430,45 @@ export class AggregationLayer {
             mentions: [],
             embeds: embeds || []
         });
-        // Use ethers.keccak256 to match Hub's hash calculation
-        const messageHash = ethers.keccak256(ethers.toUtf8Bytes(messageContent));
+        // Only submit to hubs for top-level posts (not replies)
+        // Replies are stored in PDS and don't need Hub propagation
+        // The Hub expects hex-format parent hashes, but we use AT Protocol URIs
+        if (!parentHash) {
+            // Use ethers.keccak256 to match Hub's hash calculation
+            const messageHash = ethers.keccak256(ethers.toUtf8Bytes(messageContent));
 
-        // Also submit to hubs for propagation
-        for (const hubEndpoint of this.hubEndpoints) {
-            try {
-                const hubMessage = {
-                    hash: messageHash,
-                    did: did,
-                    text,
-                    messageType: parentHash ? 'reply' : 'post' as 'post' | 'reply',
-                    parentHash: parentHash || undefined,
-                    rootParentHash: parentHash || undefined, // For now, same as parentHash
-                    timestamp: timestamp,
-                    embeds: embeds || [],
-                    deleted: false
-                };
-                console.log(`[AggregationLayer] Submitting message to hub ${hubEndpoint}:`, JSON.stringify(hubMessage, null, 2));
-                const hubResponse = await fetch(`${hubEndpoint}/api/v1/messages`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(hubMessage)
-                });
-                if (!hubResponse.ok) {
-                    const errorText = await hubResponse.text();
-                    console.error(`[AggregationLayer] Hub ${hubEndpoint} rejected message: ${hubResponse.status} ${errorText}`);
-                } else {
-                    const hubResult = await hubResponse.json();
-                    console.log(`[AggregationLayer] Message submitted to hub ${hubEndpoint} successfully:`, hubResult);
+            // Submit to hubs for propagation (only for top-level posts)
+            for (const hubEndpoint of this.hubEndpoints) {
+                try {
+                    const hubMessage = {
+                        hash: messageHash,
+                        did: did,
+                        text,
+                        messageType: 'post' as 'post' | 'reply',
+                        timestamp: timestamp,
+                        embeds: embeds || [],
+                        deleted: false
+                    };
+                    console.log(`[AggregationLayer] Submitting message to hub ${hubEndpoint}:`, JSON.stringify(hubMessage, null, 2));
+                    const hubResponse = await fetch(`${hubEndpoint}/api/v1/messages`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(hubMessage)
+                    });
+                    if (!hubResponse.ok) {
+                        const errorText = await hubResponse.text();
+                        console.error(`[AggregationLayer] Hub ${hubEndpoint} rejected message: ${hubResponse.status} ${errorText}`);
+                    } else {
+                        const hubResult = await hubResponse.json();
+                        console.log(`[AggregationLayer] Message submitted to hub ${hubEndpoint} successfully:`, hubResult);
+                    }
+                }
+                catch (error) {
+                    console.error(`[AggregationLayer] Failed to submit to hub ${hubEndpoint}:`, error);
                 }
             }
-            catch (error) {
-                console.error(`[AggregationLayer] Failed to submit to hub ${hubEndpoint}:`, error);
-            }
+        } else {
+            console.log(`[AggregationLayer] Skipping Hub submission for reply (stored in PDS only)`);
         }
         return {
             hash: result.uri,
@@ -612,6 +618,23 @@ export class AggregationLayer {
         enrichedReplies.sort((a, b) => b.timestamp - a.timestamp);
 
         return enrichedReplies;
+    }
+    async getDIDFromAddress(walletAddress: string): Promise<string | null> {
+        // Query users table to find FID for this wallet address
+        // Then convert to DID format
+        if (!this.db) {
+            return null;
+        }
+        try {
+            const result = await this.db.query(`SELECT fid FROM users WHERE address = $1 AND active = true LIMIT 1`, [walletAddress.toLowerCase()]);
+            if (result.rows.length > 0) {
+                const fid = result.rows[0].fid;
+                return `did:daemon:${fid}`;
+            }
+        } catch (error) {
+            console.error(`[AggregationLayer] Failed to lookup DID from address:`, error);
+        }
+        return null;
     }
     async getProfile(did: string) {
         // Check cache

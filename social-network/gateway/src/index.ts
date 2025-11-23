@@ -135,6 +135,23 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
     }
   });
 
+  // Lookup DID from wallet address
+  app.get('/api/v1/wallet/:address/did', async (req, res) => {
+    try {
+      const address = req.params.address;
+      if (!address || !address.startsWith('0x')) {
+        return res.status(400).json({ error: 'Invalid wallet address format' });
+      }
+      const did = await gatewayService.getDIDFromAddress(address);
+      if (!did) {
+        return res.status(404).json({ error: 'No DID found for this wallet address' });
+      }
+      res.json({ did, address });
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
   // Profile endpoints (public read, protected write)
   // Accept did in URL: /api/v1/profile/:did
   app.get('/api/v1/profile/:did', async (req, res) => {
