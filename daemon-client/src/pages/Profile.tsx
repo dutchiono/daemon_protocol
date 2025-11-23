@@ -2,21 +2,18 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useWallet } from '../wallet/WalletProvider';
 import { getProfile, getUserPosts, followUser, unfollowUser } from '../api/client';
-import { fidToDid, didToFid } from '../utils/did';
 import Post from '../components/Post';
 import './Profile.css';
 
 export default function Profile() {
-  const { fid: urlFid } = useParams<{ fid: string }>();
-  const { did } = useWallet();
+  const { did: urlDid } = useParams<{ did: string }>();
+  const { did: currentUserDid } = useWallet();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Use URL fid if provided, otherwise use current user's did
-  const profileFid = urlFid ? parseInt(urlFid) : (did ? didToFid(did) : null);
-  const profileDid = profileFid ? fidToDid(profileFid) : null;
-  const isOwnProfile = !urlFid && did !== null;
-  const currentUserDid = did ? `did:daemon:${did}` : null;
+  // Use URL did if provided, otherwise use current user's did
+  const profileDid = urlDid ? decodeURIComponent(urlDid) : currentUserDid;
+  const isOwnProfile = !urlDid && currentUserDid !== null;
 
   const { data: profile, isLoading: profileLoading, error: profileError } = useQuery({
     queryKey: ['profile', profileDid],
@@ -121,7 +118,7 @@ export default function Profile() {
           </div>
           <div className="profile-details">
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-              <h2>{profile.displayName || `@${profile.username || profileFid}`}</h2>
+              <h2>{profile.displayName || `@${profile.username || profileDid}`}</h2>
               {isOwnProfile ? (
                 <button
                   onClick={() => navigate('/settings')}

@@ -26,7 +26,7 @@ function App() {
               <Route path="/feed" element={<Feed />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/settings" element={<Settings />} />
-              <Route path="/profile/:fid" element={<Profile />} />
+              <Route path="/profile/:did" element={<Profile />} />
               <Route path="/compose" element={<Compose />} />
               <Route path="/sdk" element={<SDK />} />
               <Route path="/launchpad" element={<Launchpad />} />
