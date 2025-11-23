@@ -3,18 +3,17 @@ import { useEffect, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import Post from './Post';
 import { getFeed } from '../api/client';
-import { fidToDid } from '../utils/did';
 import './PostFeed.css';
 
 interface PostFeedProps {
-  did: number | null;
+  did: string | null;
   feedType?: 'hot' | 'top' | 'new' | 'algorithmic';
 }
 
 const POSTS_PER_PAGE = 25;
 
 export default function PostFeed({ did, feedType = 'hot' }: PostFeedProps) {
-  const didString = fidToDid(did);
+  const didString = did; // did is already a full DID string
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const {

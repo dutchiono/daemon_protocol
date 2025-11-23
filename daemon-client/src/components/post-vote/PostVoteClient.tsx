@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowBigDown, ArrowBigUp } from 'lucide-react';
 import { votePost } from '../../api/client';
 import { useWallet } from '../../wallet/WalletProvider';
-import { fidToDid } from '../../utils/did';
+// Removed fidToDid import - did is already a full DID string
 import './PostVote.css';
 
 interface PostVoteClientProps {
@@ -43,11 +43,7 @@ export default function PostVoteClient({
       if (!did) {
         throw new Error('Wallet not connected');
       }
-      const didString = fidToDid(did);
-      if (!didString) {
-        throw new Error('Invalid DID');
-      }
-      return await votePost(didString, postHash, voteType);
+      return await votePost(did, postHash, voteType);
     },
     onError: (err, voteType) => {
       // Revert optimistic update

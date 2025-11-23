@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getFeed, createPost } from '../api/client';
 import { useWallet } from '../wallet/WalletProvider';
-import { fidToDid } from '../utils/did';
+// Removed fidToDid import - did is already a full DID string
 import CommentVotes from './CommentVotes';
 import './CommentsSection.css';
 
@@ -28,7 +28,7 @@ export default function CommentsSection({ postHash }: CommentsSectionProps) {
   const queryClient = useQueryClient();
   const [showComposer, setShowComposer] = useState(false);
   const [commentText, setCommentText] = useState('');
-  const didString = did ? fidToDid(did) : null;
+  const didString = did; // did is already a full DID string
 
   // Fetch replies (comments) for this post
   // Comments are posts with parentHash matching this post's hash

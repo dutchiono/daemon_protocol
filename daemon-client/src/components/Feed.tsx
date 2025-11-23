@@ -3,7 +3,7 @@ import PostFeed from './PostFeed';
 import './Feed.css';
 
 interface FeedProps {
-  did: number | null;
+  did: string | null;
 }
 
 type FeedType = 'hot' | 'top' | 'new' | 'algorithmic';

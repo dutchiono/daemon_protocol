@@ -3,7 +3,7 @@ import { createPost } from '../api/client';
 import './PostComposer.css';
 
 interface PostComposerProps {
-  did: number | null;
+  did: string | null;
   onPostCreated: () => void;
   onCancel?: () => void;
   parentHash?: string; // For replies/comments
@@ -37,11 +37,10 @@ export default function PostComposer({ did, onPostCreated, onCancel, parentHash 
     setError(null);
 
     try {
-      const didString = did ? `did:daemon:${did}` : null;
-      if (!didString) {
+      if (!did) {
         throw new Error('Wallet not connected');
       }
-      await createPost(didString, text, parentHash);
+      await createPost(did, text, parentHash);
       setText('');
       onPostCreated();
     } catch (err) {
