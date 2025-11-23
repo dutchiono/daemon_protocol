@@ -5,12 +5,26 @@ echo "=========================="
 echo ""
 
 echo "1️⃣  Stopping Gateway..."
-pm2 stop daemon-gateway
-pm2 delete daemon-gateway
+pm2 stop daemon-gateway 2>/dev/null || true
+pm2 delete daemon-gateway 2>/dev/null || true
 echo ""
 
-echo "2️⃣  Checking for processes on port 4003..."
-lsof -ti:4003 | xargs -r kill -9 2>/dev/null || echo "   No processes found on port 4003"
+echo "2️⃣  Killing any processes on port 4003..."
+# Find and kill processes on port 4003
+PID=$(lsof -ti:4003 2>/dev/null || true)
+if [ -n "$PID" ]; then
+  echo "   Found process $PID on port 4003, killing it..."
+  kill -9 $PID 2>/dev/null || true
+  sleep 1
+  # Double check
+  PID2=$(lsof -ti:4003 2>/dev/null || true)
+  if [ -n "$PID2" ]; then
+    echo "   Force killing remaining process $PID2..."
+    kill -9 $PID2 2>/dev/null || true
+  fi
+else
+  echo "   No processes found on port 4003"
+fi
 echo ""
 
 echo "3️⃣  Rebuilding Gateway..."
@@ -28,7 +42,17 @@ export REDIS_URL="${REDIS_URL:-}"
 export X402_SERVICE_URL="${X402_SERVICE_URL:-http://localhost:3000}"
 
 cd ~/daemon
-pm2 start social-network/gateway/dist/index.js --name daemon-gateway
+pm2 start social-network/gateway/dist/index.js --name daemon-gateway --update-env
+echo ""
+
+# Wait a moment and verify port is free
+sleep 2
+if lsof -ti:4003 >/dev/null 2>&1; then
+  echo "⚠️  WARNING: Port 4003 is still in use!"
+  echo "   Trying to kill it again..."
+  lsof -ti:4003 | xargs kill -9 2>/dev/null || true
+  sleep 1
+fi
 echo ""
 
 echo "5️⃣  Waiting for Gateway to start..."
