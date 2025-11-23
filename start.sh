@@ -44,6 +44,28 @@ echo "3️⃣  Pulling latest code..."
 git pull
 echo ""
 
+# 3.5. Run database migrations
+echo "3.5️⃣  Running database migrations..."
+if [ -f backend/db/migrate-fid-to-did.sql ]; then
+  if [ -n "$DATABASE_URL" ]; then
+    # Extract database name from DATABASE_URL if needed, or use default
+    DB_NAME="${DATABASE_URL##*/}"
+    DB_NAME="${DB_NAME%%\?*}"
+    # Try to run migration (will fail gracefully if already applied)
+    psql "$DATABASE_URL" -f backend/db/migrate-fid-to-did.sql 2>/dev/null || \
+    psql -U daemon -d daemon -f backend/db/migrate-fid-to-did.sql 2>/dev/null || \
+    echo "   ⚠️  Migration skipped (may already be applied or DB not accessible)"
+  else
+    # Try default connection
+    psql -U daemon -d daemon -f backend/db/migrate-fid-to-did.sql 2>/dev/null || \
+    echo "   ⚠️  Migration skipped (DATABASE_URL not set or DB not accessible)"
+  fi
+  echo "   ✅ Migration check complete"
+else
+  echo "   ⚠️  Migration file not found, skipping"
+fi
+echo ""
+
 # 4. Install dependencies
 echo "4️⃣  Installing dependencies..."
 cd social-network/hub && npm install --silent && cd ../..
