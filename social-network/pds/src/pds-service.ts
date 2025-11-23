@@ -162,8 +162,13 @@ export class PDSService {
     // Create record
     const result = await this.db.createRecord(repo, collection, record);
 
-    // Replicate to federation
-    await this.replicationEngine.replicateRecord(repo, collection, result.uri);
+    // Replicate to federation (non-blocking - don't fail if replication fails)
+    try {
+      await this.replicationEngine.replicateRecord(repo, collection, result.uri);
+    } catch (replicationError) {
+      console.error(`[PDS] Failed to replicate record ${result.uri} (non-fatal):`, replicationError);
+      // Continue - replication failure shouldn't break record creation
+    }
 
     return result;
   }
@@ -181,8 +186,13 @@ export class PDSService {
     // Create follow record
     const result = await this.db.createFollow(repo, follow);
 
-    // Replicate to federation
-    await this.replicationEngine.replicateFollow(repo, result.uri);
+    // Replicate to federation (non-blocking - don't fail if replication fails)
+    try {
+      await this.replicationEngine.replicateFollow(repo, result.uri);
+    } catch (replicationError) {
+      console.error(`[PDS] Failed to replicate follow ${result.uri} (non-fatal):`, replicationError);
+      // Continue - replication failure shouldn't break follow creation
+    }
 
     return result;
   }

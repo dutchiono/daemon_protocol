@@ -43,23 +43,43 @@ export class Database {
   }
 
   async createProfile(did: string, handle: string): Promise<void> {
+    // Validate inputs
+    if (!did || typeof did !== 'string') {
+      throw new Error(`Invalid DID: ${did} (type: ${typeof did})`);
+    }
+    if (!handle || typeof handle !== 'string') {
+      throw new Error(`Invalid handle: ${handle} (type: ${typeof handle})`);
+    }
+
     // Extract FID from DID: did:daemon:1 -> 1
     const fidMatch = did.match(/^did:daemon:(\d+)$/);
-    if (!fidMatch) {
-      throw new Error(`Invalid DID format: ${did}`);
+    if (!fidMatch || !fidMatch[1]) {
+      throw new Error(`Invalid DID format: ${did}. Expected format: did:daemon:<number>`);
     }
+
     const fid = parseInt(fidMatch[1], 10);
-
     if (isNaN(fid) || fid <= 0) {
-      throw new Error(`Invalid FID extracted from DID: ${did}`);
+      throw new Error(`Invalid FID extracted from DID: ${did}. Parsed FID: ${fidMatch[1]}`);
     }
 
-    await this.pool.query(
-      `INSERT INTO profiles (fid, did, username, display_name, created_at)
-       VALUES ($1, $2, $3, $3, NOW())
-       ON CONFLICT (fid) DO UPDATE SET did = $2, username = $3, updated_at = NOW()`,
-      [fid, did, handle]
-    );
+    console.log(`[Database] Creating profile - DID: ${did}, FID: ${fid}, Handle: ${handle}`);
+
+    try {
+      await this.pool.query(
+        `INSERT INTO profiles (fid, did, username, display_name, created_at)
+         VALUES ($1, $2, $3, $3, NOW())
+         ON CONFLICT (fid) DO UPDATE SET did = $2, username = $3, updated_at = NOW()`,
+        [fid, did, handle]
+      );
+      console.log(`[Database] Profile created successfully - DID: ${did}, FID: ${fid}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[Database] Failed to create profile - DID: ${did}, FID: ${fid}, Handle: ${handle}, Error: ${errorMessage}`);
+      if (error instanceof Error && error.stack) {
+        console.error(`[Database] Stack trace:`, error.stack);
+      }
+      throw error;
+    }
   }
 
   async getProfile(did: string): Promise<Profile | null> {

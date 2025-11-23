@@ -88,14 +88,49 @@ function setupAPI(app: express.Application, pdsService: PDSService) {
     }
   });
 
-  // Create post
+  // Create record (posts, follows, etc.) - consolidated handler
   app.post('/xrpc/com.atproto.repo.createRecord', async (req, res) => {
     try {
       const { repo, collection, record } = req.body;
-      const result = await pdsService.createRecord(repo, collection, record);
-      res.json(result);
+
+      // Log full request body for debugging
+      console.log('[PDS] POST /xrpc/com.atproto.repo.createRecord - Request body:', {
+        repo,
+        collection,
+        record: JSON.stringify(record, null, 2),
+        recordType: typeof record,
+        recordKeys: record ? Object.keys(record) : []
+      });
+
+      // Route based on collection type
+      if (collection === 'app.bsky.graph.follow') {
+        // Handle follow operation
+        console.log('[PDS] Creating follow record for repo:', repo);
+        const result = await pdsService.createFollow(repo, record);
+        console.log('[PDS] Follow record created successfully:', result.uri);
+        res.json(result);
+      } else if (collection === 'app.bsky.feed.post') {
+        // Handle post creation
+        console.log('[PDS] Creating post record for repo:', repo);
+        const result = await pdsService.createRecord(repo, collection, record);
+        console.log('[PDS] Post record created successfully:', result.uri);
+        res.json(result);
+      } else {
+        // Handle other record types
+        console.log('[PDS] Creating record for collection:', collection);
+        const result = await pdsService.createRecord(repo, collection, record);
+        console.log('[PDS] Record created successfully:', result.uri);
+        res.json(result);
+      }
     } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      console.error('[PDS] POST /xrpc/com.atproto.repo.createRecord - Error:', errorMessage);
+      if (errorStack) {
+        console.error('[PDS] Stack trace:', errorStack);
+      }
+      console.error('[PDS] Request body that caused error:', JSON.stringify(req.body, null, 2));
+      res.status(400).json({ error: errorMessage });
     }
   });
 
@@ -112,21 +147,6 @@ function setupAPI(app: express.Application, pdsService: PDSService) {
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-    }
-  });
-
-  // Follow operation
-  app.post('/xrpc/com.atproto.repo.createRecord', async (req, res) => {
-    try {
-      const { repo, collection, record } = req.body;
-      if (collection === 'app.bsky.graph.follow') {
-        const result = await pdsService.createFollow(repo, record);
-        res.json(result);
-      } else {
-        res.status(400).json({ error: 'Invalid collection' });
-      }
-    } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 

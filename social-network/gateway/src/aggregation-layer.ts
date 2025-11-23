@@ -98,12 +98,10 @@ export class AggregationLayer {
         if (parentHash) {
             record.reply = {
                 root: {
-                    uri: parentHash,
-                    cid: null // PDS will fill this if needed
+                    uri: parentHash
                 },
                 parent: {
-                    uri: parentHash,
-                    cid: null
+                    uri: parentHash
                 }
             };
         }
@@ -124,6 +122,7 @@ export class AggregationLayer {
             record: record
         };
 
+        // Log full request body before sending
         console.log('[AggregationLayer] Creating post on PDS:', {
             pds: userPds,
             did: did,
@@ -131,6 +130,7 @@ export class AggregationLayer {
             hasParentHash: !!parentHash,
             hasEmbeds: !!(embeds && embeds.length > 0)
         });
+        console.log('[AggregationLayer] Full request body being sent to PDS:', JSON.stringify(requestBody, null, 2));
 
         // Create post on PDS
         const response = await fetch(`${userPds}/xrpc/com.atproto.repo.createRecord`, {
