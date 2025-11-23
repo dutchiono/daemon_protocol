@@ -5,7 +5,7 @@
 import pg from 'pg';
 import Redis from 'redis';
 import type { Config } from './config.js';
-import { didToFid } from './did-utils.js';
+// Removed didToFid import - using DIDs directly throughout
 import type { Reaction } from './types.js';
 const { Pool } = pg;
 export class AggregationLayer {
@@ -27,7 +27,7 @@ export class AggregationLayer {
             this.redis.connect().catch(console.error);
         }
     }
-    async getFollows(did: string): Promise<number[]> {
+    async getFollows(did: string): Promise<string[]> {
         // Check cache first
         const cacheKey = `follows:${did}`;
         if (this.redis) {
@@ -36,27 +36,39 @@ export class AggregationLayer {
                 return JSON.parse(cached);
             }
         }
-        // Query database using DIDs
+        // Query database using DIDs - return DIDs directly
         const result = await this.db.query(`SELECT following_did FROM follows
          WHERE follower_did = $1 AND active = true`, [did]);
-        const follows = result.rows.map((row) => didToFid(row.following_did));
+        const follows = result.rows.map((row) => row.following_did);
         // Cache result
         if (this.redis) {
             await this.redis.setEx(cacheKey, 300, JSON.stringify(follows)); // 5 min cache
         }
         return follows;
     }
-    async getPostsFromUsers(fids: number[], type: string, limit: number, cursor?: string) {
-        // Query from hubs first
+    async getPostsFromUsers(dids: string[], type: string, limit: number, cursor?: string) {
+        // Query from hubs first - using DIDs
         const posts: any[] = [];
         for (const hubEndpoint of this.hubEndpoints) {
             try {
-                // Query hub for posts from these users
-                const response = await fetch(`${hubEndpoint}/api/v1/messages/batch?fids=${fids.join(',')}&limit=${limit}`);
+                // Query hub for posts from these users - pass DIDs
+                const didsParam = dids.map(d => encodeURIComponent(d)).join(',');
+                const response = await fetch(`${hubEndpoint}/api/v1/messages/batch?dids=${didsParam}&limit=${limit}`);
                 if (response.ok) {
                     const data: any = await response.json();
                     if (data.messages && Array.isArray(data.messages)) {
-                        posts.push(...data.messages);
+                        // Convert Hub messages to Post format
+                        for (const msg of data.messages) {
+                            posts.push({
+                                hash: msg.hash,
+                                did: msg.did,
+                                text: msg.text,
+                                timestamp: msg.timestamp,
+                                messageType: msg.messageType || 'post',
+                                parentHash: msg.parentHash,
+                                embeds: msg.embeds || []
+                            });
+                        }
                     }
                 }
             }
@@ -67,14 +79,13 @@ export class AggregationLayer {
 
         // If Hub has no posts, fallback to querying PDS directly
         if (posts.length === 0 && this.pdsEndpoints && this.pdsEndpoints.length > 0) {
-            console.log(`[AggregationLayer] Hub returned no posts, querying PDS directly for ${fids.length} users`);
+            console.log(`[AggregationLayer] Hub returned no posts, querying PDS directly for ${dids.length} users`);
             const userPds = this.pdsEndpoints[0]; // Use first PDS for now
 
-            for (const fid of fids) {
+            for (const did of dids) {
                 try {
-                    const did = `did:daemon:${fid}`;
                     // Query PDS for posts from this user
-                    const response = await fetch(`${userPds}/xrpc/com.atproto.repo.listRecords?repo=${did}&collection=app.daemon.feed.post&limit=${limit}`);
+                    const response = await fetch(`${userPds}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(did)}&collection=app.daemon.feed.post&limit=${limit}`);
                     if (response.ok) {
                         const data: any = await response.json();
                         if (data.records && Array.isArray(data.records)) {
@@ -83,7 +94,6 @@ export class AggregationLayer {
                                 if (record.value && record.value.text) {
                                     posts.push({
                                         hash: record.uri,
-                                        fid: fid,
                                         did: did,
                                         text: record.value.text,
                                         timestamp: new Date(record.value.createdAt).getTime() / 1000,
@@ -95,7 +105,7 @@ export class AggregationLayer {
                         }
                     }
                 } catch (error) {
-                    console.error(`[AggregationLayer] Failed to query PDS for user ${fid}:`, error);
+                    console.error(`[AggregationLayer] Failed to query PDS for user ${did}:`, error);
                 }
             }
         }
@@ -105,8 +115,7 @@ export class AggregationLayer {
         return uniquePosts.slice(0, limit);
     }
     async createPost(did: string, text: string, parentHash?: string, embeds?: any[]) {
-        // Convert did to fid for internal operations
-        const fid = didToFid(did);
+        // Use DID directly - no conversion needed
 
         // Create post via user's PDS
         // Find user's PDS
@@ -215,7 +224,7 @@ export class AggregationLayer {
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
                                     hash: result.uri,
-                                    fid,
+                                    did: did,
                                     text,
                                     parentHash: parentHash || null,
                                     timestamp: Math.floor(Date.now() / 1000),
@@ -250,7 +259,7 @@ export class AggregationLayer {
             try {
                 const hubMessage = {
                     hash: result.uri,
-                    fid,
+                    did: did,
                     text,
                     messageType: parentHash ? 'reply' : 'post' as 'post' | 'reply',
                     parentHash: parentHash || undefined,
@@ -324,7 +333,6 @@ export class AggregationLayer {
         return null;
     }
     async getProfile(did: string) {
-        const fid = didToFid(did);
         // Check cache
         if (this.redis) {
             const cached = await this.redis.get(`profile:${did}`);
@@ -332,11 +340,8 @@ export class AggregationLayer {
                 return JSON.parse(cached);
             }
         }
-        // Query database by did first, fallback to fid
-        let result = await this.db.query(`SELECT * FROM profiles WHERE did = $1`, [did]);
-        if (result.rows.length === 0) {
-            result = await this.db.query(`SELECT * FROM profiles WHERE fid = $1`, [fid]);
-        }
+        // Query database by DID only
+        const result = await this.db.query(`SELECT * FROM profiles WHERE did = $1`, [did]);
         if (result.rows.length === 0) {
             return null;
         }
@@ -392,15 +397,15 @@ export class AggregationLayer {
             await this.redis.del(`follows:${followerDid}`);
         }
     }
-    async createReaction(fid: number, targetHash: string, type: 'like' | 'repost' | 'quote'): Promise<Reaction> {
-        // Store reaction in database
-        await this.db.query(`INSERT INTO reactions (fid, target_hash, reaction_type, timestamp, active)
+    async createReaction(did: string, targetHash: string, type: 'like' | 'repost' | 'quote'): Promise<Reaction> {
+        // Store reaction in database - using DID
+        await this.db.query(`INSERT INTO reactions (did, target_hash, reaction_type, timestamp, active)
        VALUES ($1, $2, $3, $4, true)
-       ON CONFLICT (fid, target_hash, reaction_type) DO UPDATE SET active = true`, [fid, targetHash, type, Math.floor(Date.now() / 1000)]);
+       ON CONFLICT (did, target_hash, reaction_type) DO UPDATE SET active = true`, [did, targetHash, type, Math.floor(Date.now() / 1000)]);
         return {
             type,
             targetHash,
-            did: `did:daemon:${fid}`,
+            did: did,
             timestamp: Math.floor(Date.now() / 1000)
         };
     }
@@ -413,7 +418,7 @@ export class AggregationLayer {
        LIMIT $2`, [query, limit]);
         return result.rows.map((row) => ({
             hash: row.hash,
-            fid: parseInt(row.fid),
+            did: row.did,
             text: row.text,
             timestamp: parseInt(row.timestamp)
         }));
@@ -423,7 +428,7 @@ export class AggregationLayer {
        WHERE username ILIKE $1 OR display_name ILIKE $1
        LIMIT $2`, [`%${query}%`, limit]);
         return result.rows.map((row) => ({
-            fid: parseInt(row.fid),
+            did: row.did,
             username: row.username,
             displayName: row.display_name,
             bio: row.bio,
@@ -441,7 +446,6 @@ export class AggregationLayer {
         return null;
     }
     async getUnreadNotificationCount(did: string) {
-        const fid = didToFid(did);
         if (!this.config.databaseUrl || !this.db) {
             return 0;
         }
@@ -453,10 +457,10 @@ export class AggregationLayer {
             const result = await this.db.query(`SELECT COUNT(DISTINCT r.id) as count
          FROM reactions r
          INNER JOIN messages m ON r.target_hash = m.hash
-         WHERE m.fid = $1
-           AND r.fid != $1
+         WHERE m.did = $1
+           AND r.did != $1
            AND m.timestamp > $2
-           AND r.active = true`, [fid, sevenDaysAgo]);
+           AND r.active = true`, [did, sevenDaysAgo]);
             const reactionCount = parseInt(result.rows[0]?.count || '0');
             // Count new follows (people who followed you in last 7 days)
             const followResult = await this.db.query(`SELECT COUNT(*) as count
@@ -494,15 +498,13 @@ export class AggregationLayer {
         }
 
         // User doesn't exist, create account
-        const fid = didToFid(did);
-
         // Get profile from Gateway database to get handle
-        const profileResult = await this.db.query(`SELECT username, display_name FROM profiles WHERE did = $1 OR fid = $2`, [did, fid]);
+        const profileResult = await this.db.query(`SELECT username, display_name FROM profiles WHERE did = $1`, [did]);
         if (profileResult.rows.length === 0) {
             throw new Error('Profile not found in Gateway database');
         }
 
-        const handle = profileResult.rows[0].username || `user${fid}`;
+        const handle = profileResult.rows[0].username || did; // Use DID as fallback handle
 
         // Create account on PDS
         const createResponse = await fetch(`${userPds}/xrpc/com.atproto.server.createAccount`, {
@@ -524,7 +526,6 @@ export class AggregationLayer {
     }
 
     async createVote(did: string, targetHash: string, targetType: 'post' | 'comment', voteType: 'UP' | 'DOWN') {
-        const fid = didToFid(did);
         const timestamp = Math.floor(Date.now() / 1000);
 
         // Insert or update vote
@@ -609,7 +610,7 @@ export class AggregationLayer {
         website?: string;
         walletAddress?: string;
     }) {
-        const fid = didToFid(did);
+        // Use DID directly - no conversion needed
 
         // Build update query dynamically
         const updateFields = [];
@@ -653,14 +654,14 @@ export class AggregationLayer {
         updateFields.push(`did = $${paramIndex++}`);
         values.push(did);
 
-        // Add fid for WHERE clause
-        values.push(fid);
+        // Add did for WHERE clause
+        values.push(did);
 
         // Update profile in database
         const updateQuery = `
             UPDATE profiles
             SET ${updateFields.join(', ')}
-            WHERE fid = $${paramIndex}
+            WHERE did = $${paramIndex}
             RETURNING *
         `;
 
@@ -669,14 +670,13 @@ export class AggregationLayer {
         if (result.rows.length === 0) {
             // Profile doesn't exist, create it
             const insertResult = await this.db.query(`
-                INSERT INTO profiles (fid, did, username, display_name, bio, avatar_cid, banner_cid, website, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+                INSERT INTO profiles (did, username, display_name, bio, avatar_cid, banner_cid, website, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
                 RETURNING *
             `, [
-                fid,
                 did,
-                updates.username || `user${fid}`,
-                updates.displayName || updates.username || `user${fid}`,
+                updates.username || did,
+                updates.displayName || updates.username || did,
                 updates.bio || null,
                 updates.avatar || null,
                 updates.banner || null,

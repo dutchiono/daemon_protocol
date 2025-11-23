@@ -114,12 +114,12 @@ export class HubService {
     return message;
   }
 
-  async getMessagesByFid(fid: number, limit: number, offset: number): Promise<Message[]> {
-    return await this.db.getMessagesByFid(fid, limit, offset);
+  async getMessagesByDid(did: string, limit: number, offset: number): Promise<Message[]> {
+    return await this.db.getMessagesByDid(did, limit, offset);
   }
 
-  async getMessagesByFids(fids: number[], limit: number): Promise<Message[]> {
-    return await this.db.getMessagesByFids(fids, limit);
+  async getMessagesByDids(dids: string[], limit: number): Promise<Message[]> {
+    return await this.db.getMessagesByDids(dids, limit);
   }
 
   private async handleIncomingMessage(message: Message): Promise<void> {

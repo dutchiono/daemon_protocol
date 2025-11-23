@@ -6,7 +6,7 @@
 import { AggregationLayer } from './aggregation-layer.js';
 import type { Config } from './config.js';
 import type { Post, Profile, Feed, Reaction, Vote } from './types.js';
-import { didToFid, fidToDid } from './did-utils.js';
+// Removed didToFid/fidToDid imports - using DIDs directly throughout
 
 export class GatewayService {
   private aggregationLayer: AggregationLayer;
@@ -30,18 +30,15 @@ export class GatewayService {
         return { posts: [], cursor: undefined };
       }
 
-      // Convert did to fid for internal operations
-      const fid = didToFid(did);
-
       // Get user's follows using DID
       const follows = await this.aggregationLayer.getFollows(did);
 
-      // Always include your own FID in the list so you see your own posts
-      const fidsToQuery = [...new Set([fid, ...follows])];
+      // Always include your own DID in the list so you see your own posts
+      const didsToQuery = [...new Set([did, ...follows])];
 
       // Get posts from followed users AND yourself
       const posts = await this.aggregationLayer.getPostsFromUsers(
-        fidsToQuery,
+        didsToQuery,
         type,
         limit,
         cursor
@@ -84,9 +81,8 @@ export class GatewayService {
   }
 
   async getPostsByUser(did: string, limit: number, cursor?: string): Promise<Post[]> {
-    const fid = didToFid(did);
-    // Get posts from this specific user
-    const posts = await this.aggregationLayer.getPostsFromUsers([fid], 'chronological', limit, cursor);
+    // Get posts from this specific user - using DID
+    const posts = await this.aggregationLayer.getPostsFromUsers([did], 'chronological', limit, cursor);
     // Enrich with votes if needed
     return await this.aggregationLayer.enrichPostsWithVotes(posts, did);
   }
@@ -125,8 +121,7 @@ export class GatewayService {
     targetHash: string,
     type: 'like' | 'repost' | 'quote'
   ): Promise<Reaction> {
-    const fid = didToFid(did);
-    return await this.aggregationLayer.createReaction(fid, targetHash, type);
+    return await this.aggregationLayer.createReaction(did, targetHash, type);
   }
 
   async createVote(

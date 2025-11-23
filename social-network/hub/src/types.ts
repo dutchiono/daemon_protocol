@@ -5,12 +5,12 @@
 
 export interface Message {
   hash: string;
-  fid: number;
+  did: string; // did:daemon:X (Daemon DID, not Farcaster ID)
   text: string;
   messageType?: 'cast' | 'post' | 'reply';
   parentHash?: string;
   rootParentHash?: string;
-  mentions?: number[];
+  mentions?: string[]; // Array of DIDs
   mentionsPositions?: number[];
   timestamp: number;
   deleted?: boolean;

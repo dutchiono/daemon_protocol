@@ -86,28 +86,29 @@ export class PDSService {
   }
 
   /**
-   * @notice Create account using wallet (requires FID from IdRegistry)
+   * @notice Create account using wallet (requires registration in IdRegistry)
    * @param walletAddress The wallet address
-   * @param handle Optional handle (if not provided, will use FID)
-   * @returns Account info with FID
+   * @param handle Optional handle
+   * @returns Account info with DID
    */
   async createAccountWithWallet(
     walletAddress: string,
     handle?: string
-  ): Promise<{ fid: number; did: string; handle: string }> {
+  ): Promise<{ did: string; handle: string }> {
     if (!this.idRegistry) {
       throw new Error('IdRegistry not configured. Wallet signup unavailable.');
     }
 
     try {
-      // Get FID from IdRegistry
-      const fid = await this.idRegistry.fidOf(walletAddress);
-      if (fid === 0n) {
-        throw new Error('FID not registered. Please register FID first using IdRegistry.register()');
+      // Get numeric identifier from IdRegistry contract
+      // Note: Contract method is named "fidOf" but returns a numeric ID for Daemon
+      const numericId = await this.idRegistry.fidOf(walletAddress);
+      if (numericId === 0n) {
+        throw new Error('Not registered. Please register first using IdRegistry.register()');
       }
 
-      // Use handle if provided, otherwise use FID-based handle
-      const finalHandle = handle || `fid-${fid.toString()}`;
+      // Use handle if provided, otherwise use numeric ID-based handle
+      const finalHandle = handle || `user-${numericId.toString()}`;
 
       // Check if handle is available (if custom handle provided)
       if (handle) {
@@ -120,8 +121,8 @@ export class PDSService {
         }
       }
 
-      // Generate DID from FID
-      const did = `did:daemon:${fid.toString()}`;
+      // Generate DID from numeric identifier
+      const did = `did:daemon:${numericId.toString()}`;
 
       // Create user account (no email/password for wallet signup)
       await this.db.createUser(did, finalHandle, '', ''); // Empty email/password for wallet accounts
@@ -129,15 +130,12 @@ export class PDSService {
       // Create default profile
       await this.db.createProfile(did, finalHandle);
 
-      // Link FID to account in database (if you have a fid column)
-      // await this.db.linkFidToAccount(did, Number(fid));
-
       // Replicate to federation
       await this.replicationEngine.replicateUser(did);
 
-      logger.info(`Wallet account created: ${walletAddress} -> FID ${fid}`);
+      logger.info(`Wallet account created: ${walletAddress} -> DID ${did}`);
 
-      return { fid: Number(fid), did, handle: finalHandle };
+      return { did, handle: finalHandle };
     } catch (error) {
       logger.error(`Error creating wallet account: ${error}`);
       throw error;

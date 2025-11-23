@@ -20,24 +20,24 @@ export class Database {
     try {
       await client.query('BEGIN');
 
-      // Ensure user exists (create if not)
+      // Ensure user exists (create if not) - using DID as primary key
       await client.query(
-        `INSERT INTO users (fid, address, created_at)
+        `INSERT INTO users (did, address, created_at)
          VALUES ($1, $2, NOW())
-         ON CONFLICT (fid) DO NOTHING`,
-        [message.fid, `0x${message.fid.toString(16).padStart(40, '0')}`] // Placeholder address
+         ON CONFLICT (did) DO NOTHING`,
+        [message.did, message.did] // Use DID as address placeholder for now
       );
 
-      // Insert message
+      // Insert message - using DID
       await client.query(
         `INSERT INTO messages (
-          hash, fid, text, message_type, parent_hash, root_parent_hash,
+          hash, did, text, message_type, parent_hash, root_parent_hash,
           mentions, mentions_positions, timestamp, deleted
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         ON CONFLICT (hash) DO NOTHING`,
         [
           message.hash,
-          message.fid,
+          message.did,
           message.text,
           message.messageType || 'cast',
           message.parentHash || null,
@@ -96,7 +96,7 @@ export class Database {
 
     return {
       hash: row.hash,
-      fid: parseInt(row.fid),
+      did: row.did,
       text: row.text,
       messageType: row.message_type,
       parentHash: row.parent_hash,
@@ -114,13 +114,13 @@ export class Database {
     };
   }
 
-  async getMessagesByFid(fid: number, limit: number, offset: number): Promise<Message[]> {
+  async getMessagesByDid(did: string, limit: number, offset: number): Promise<Message[]> {
     const result = await this.pool.query(
       `SELECT * FROM messages
-       WHERE fid = $1 AND deleted = false
+       WHERE did = $1 AND deleted = false
        ORDER BY timestamp DESC
        LIMIT $2 OFFSET $3`,
-      [fid, limit, offset]
+      [did, limit, offset]
     );
 
     // Load embeds for each message
@@ -133,7 +133,7 @@ export class Database {
 
       messages.push({
         hash: row.hash,
-        fid: parseInt(row.fid),
+        did: row.did,
         text: row.text,
         messageType: row.message_type,
         parentHash: row.parent_hash,
@@ -154,19 +154,19 @@ export class Database {
     return messages;
   }
 
-  async getMessagesByFids(fids: number[], limit: number): Promise<Message[]> {
-    if (fids.length === 0) {
+  async getMessagesByDids(dids: string[], limit: number): Promise<Message[]> {
+    if (dids.length === 0) {
       return [];
     }
 
-    // Query messages from multiple FIDs
-    const placeholders = fids.map((_, i) => `$${i + 1}`).join(',');
+    // Query messages from multiple DIDs
+    const placeholders = dids.map((_, i) => `$${i + 1}`).join(',');
     const result = await this.pool.query(
       `SELECT * FROM messages
-       WHERE fid IN (${placeholders}) AND deleted = false
+       WHERE did = ANY($1::varchar[]) AND deleted = false
        ORDER BY timestamp DESC
-       LIMIT $${fids.length + 1}`,
-      [...fids, limit]
+       LIMIT $2`,
+      [dids, limit]
     );
 
     // Load embeds for each message
@@ -179,7 +179,7 @@ export class Database {
 
       messages.push({
         hash: row.hash,
-        fid: parseInt(row.fid),
+        did: row.did,
         text: row.text,
         messageType: row.message_type,
         parentHash: row.parent_hash,

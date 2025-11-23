@@ -144,12 +144,16 @@ function setupAPI(app: express.Application, hubService: HubService) {
     }
   });
 
-  // Get messages by FID
-  app.get('/api/v1/messages/fid/:fid', async (req, res) => {
+  // Get messages by DID
+  app.get('/api/v1/messages/did/:did', async (req, res) => {
     try {
       const { limit = 100, offset = 0 } = req.query;
-      const messages = await hubService.getMessagesByFid(
-        parseInt(req.params.fid),
+      const did = decodeURIComponent(req.params.did);
+      if (!did || !did.startsWith('did:daemon:')) {
+        return res.status(400).json({ error: 'Invalid DID format. Expected did:daemon:X' });
+      }
+      const messages = await hubService.getMessagesByDid(
+        did,
         parseInt(limit as string),
         parseInt(offset as string)
       );
@@ -159,19 +163,19 @@ function setupAPI(app: express.Application, hubService: HubService) {
     }
   });
 
-  // Get messages by multiple FIDs (batch endpoint)
+  // Get messages by multiple DIDs (batch endpoint)
   app.get('/api/v1/messages/batch', async (req, res) => {
     try {
-      const { fids, limit = 100 } = req.query;
-      if (!fids || typeof fids !== 'string') {
-        return res.status(400).json({ error: 'fids parameter is required (comma-separated)' });
+      const { dids, limit = 100 } = req.query;
+      if (!dids || typeof dids !== 'string') {
+        return res.status(400).json({ error: 'dids parameter is required (comma-separated)' });
       }
-      const fidArray = fids.split(',').map(f => parseInt(f.trim())).filter(f => !isNaN(f) && f > 0);
-      if (fidArray.length === 0) {
+      const didArray = dids.split(',').map(d => decodeURIComponent(d.trim())).filter(d => d.startsWith('did:daemon:'));
+      if (didArray.length === 0) {
         return res.json({ messages: [], total: 0 });
       }
-      const messages = await hubService.getMessagesByFids(
-        fidArray,
+      const messages = await hubService.getMessagesByDids(
+        didArray,
         parseInt(limit as string)
       );
       res.json({ messages, total: messages.length });

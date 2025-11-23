@@ -79,8 +79,11 @@ run_migration() {
   fi
 }
 
-# Run FID to DID migration
+# Run FID to DID migration (adds did columns)
 run_migration "backend/db/migrate-fid-to-did.sql"
+
+# Run migration to remove FID completely and use DID as primary key
+run_migration "backend/db/migrations/remove-fid-completely.sql"
 
 # Run votes table migration (for Reddit-style voting system)
 # Use absolute path from repo root to ensure it's found
