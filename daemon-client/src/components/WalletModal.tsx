@@ -29,6 +29,36 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
 
   const hasProfile = !!existingProfile && existingProfile.username && existingProfile.username !== `fid-${did}`;
   const needsUsername = did && !hasProfile && !checkingProfile;
+  
+  // Check if PDS account exists by trying to get profile from PDS
+  const [checkingPDSAccount, setCheckingPDSAccount] = useState(false);
+  const [needsPDSAccount, setNeedsPDSAccount] = useState(false);
+  
+  useEffect(() => {
+    const checkPDSAccount = async () => {
+      if (!did || !hasProfile || !address) return;
+      
+      setCheckingPDSAccount(true);
+      try {
+        // Try to get profile from PDS - if it fails, we need to create PDS account
+        const response = await axios.get(`${PDS_URL}/xrpc/com.atproto.repo.getProfile`, {
+          params: { did: `did:daemon:${did}` }
+        });
+        setNeedsPDSAccount(false);
+      } catch (error: any) {
+        // If 404 or error, PDS account doesn't exist
+        if (error.response?.status === 404 || error.response?.status >= 400) {
+          setNeedsPDSAccount(true);
+        }
+      } finally {
+        setCheckingPDSAccount(false);
+      }
+    };
+    
+    if (hasProfile && did && address) {
+      checkPDSAccount();
+    }
+  }, [hasProfile, did, address, PDS_URL]);
 
   // Reset username input when modal opens or when did changes
   useEffect(() => {
@@ -55,21 +85,34 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
   };
 
   const handleCreateAccount = async () => {
-    if (!username.trim() || !address || !did) return;
+    if (!address || !did) return;
+    
+    // Use existing username if available, otherwise use input
+    const handleToUse = existingProfile?.username || username.trim();
+    if (!handleToUse) {
+      alert('Please enter a username');
+      return;
+    }
 
     setIsCreatingAccount(true);
     try {
       const response = await axios.post(`${PDS_URL}/xrpc/com.atproto.server.createAccount`, {
         walletAddress: address,
-        handle: username.trim()
+        handle: handleToUse
       });
 
-      alert(`Account created! Username: ${response.data.handle}`);
+      alert(`PDS account created! Username: ${response.data.handle}`);
+      setNeedsPDSAccount(false);
       onClose();
       // Refresh page to update user state
       window.location.reload();
     } catch (error: any) {
-      alert(error.response?.data?.error || error.message || 'Failed to create account');
+      const errorMsg = error.response?.data?.error || error.message || 'Failed to create account';
+      alert(errorMsg);
+      // If account already exists, that's okay
+      if (errorMsg.includes('already') || errorMsg.includes('taken')) {
+        setNeedsPDSAccount(false);
+      }
     } finally {
       setIsCreatingAccount(false);
     }
