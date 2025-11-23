@@ -28,6 +28,16 @@ echo "✅ Backup created"
 # Check if assets location block exists
 if grep -q "location /assets/" "$NGINX_CONFIG"; then
   echo "✅ Assets location block already exists"
+  echo "🔧 Checking and fixing alias path..."
+  
+  # Fix the alias path if it's wrong (should be /var/www/daemon-client/assets/, not /var/www/daemon-client/dist/assets/)
+  if grep -q "alias /var/www/daemon-client/dist/assets/" "$NGINX_CONFIG"; then
+    echo "⚠️  Found incorrect alias path, fixing..."
+    sudo sed -i 's|alias /var/www/daemon-client/dist/assets/;|alias /var/www/daemon-client/assets/;|g' "$NGINX_CONFIG"
+    echo "✅ Alias path fixed"
+  else
+    echo "✅ Alias path is correct"
+  fi
 else
   echo "➕ Adding assets location block..."
 
