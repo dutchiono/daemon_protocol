@@ -5,12 +5,24 @@ echo "=========================="
 echo ""
 
 echo "1️⃣  Stopping Hub and freeing port 4001..."
+# Stop and delete PM2 process
 pm2 stop daemon-hub 2>/dev/null || true
 pm2 delete daemon-hub 2>/dev/null || true
+pm2 save 2>/dev/null || true
 
 # Kill any process using port 4001
+PIDS=$(lsof -ti:4001 2>/dev/null || true)
+if [ -n "$PIDS" ]; then
+  echo "   Killing processes on port 4001: $PIDS"
+  kill -9 $PIDS 2>/dev/null || true
+else
+  echo "   Port 4001 is free"
+fi
+sleep 2
+
+# Verify port is free
 if lsof -ti:4001 >/dev/null 2>&1; then
-  echo "   Killing process on port 4001..."
+  echo "   ⚠️  Port 4001 still in use, force killing..."
   lsof -ti:4001 | xargs kill -9 2>/dev/null || true
   sleep 1
 fi
