@@ -80,7 +80,7 @@ echo -e "${YELLOW}Database:${NC}"
 if command -v psql &> /dev/null; then
     if psql -U postgres -lqt | cut -d \| -f 1 | grep -qw "daemon" 2>/dev/null; then
         echo -e "${GREEN}✅ Database 'daemon' exists${NC}"
-        
+
         # Test connection
         if psql -U postgres -d daemon -c "SELECT 1;" > /dev/null 2>&1; then
             echo -e "${GREEN}✅ Database connection OK${NC}"

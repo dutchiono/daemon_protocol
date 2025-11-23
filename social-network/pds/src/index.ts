@@ -156,9 +156,9 @@ if (!config.databaseUrl || config.databaseUrl.trim() === '') {
   try {
     console.log('Initializing PDS...');
     const { pdsService } = await initializePDS(config);
-    
+
     console.log('PDS initialized successfully, starting server...');
-    
+
     app.listen(PORT, () => {
       console.log(`PDS server running on port ${PORT}`);
       console.log(`PDS ID: ${pdsService.getPdsId()}`);

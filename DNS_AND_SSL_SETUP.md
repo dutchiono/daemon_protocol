@@ -98,10 +98,10 @@ pm2 logs daemon-pds
    # On your local machine
    # Windows:
    ipconfig /flushdns
-   
+
    # Mac:
    sudo dscacheutil -flushcache
-   
+
    # Linux:
    sudo systemd-resolve --flush-caches
    ```

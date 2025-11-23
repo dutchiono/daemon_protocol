@@ -59,9 +59,9 @@ export default function About() {
             Daemon is open source and we welcome contributions!
           </p>
           <div className="github-link">
-            <a 
-              href="https://github.com/dutchiono/daemon_protocol" 
-              target="_blank" 
+            <a
+              href="https://github.com/dutchiono/daemon_protocol"
+              target="_blank"
               rel="noopener noreferrer"
               className="github-button"
             >

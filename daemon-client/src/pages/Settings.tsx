@@ -67,7 +67,7 @@ export default function Settings() {
         }
 
         setNeedsWalletSign(true);
-        
+
         // Ensure wallet is connected by requesting accounts
         let accounts: string[];
         try {
@@ -81,7 +81,7 @@ export default function Settings() {
             throw err;
           }
         }
-        
+
         if (!accounts || accounts.length === 0) {
           throw new Error('No accounts found. Please connect your wallet.');
         }

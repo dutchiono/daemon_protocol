@@ -54,7 +54,7 @@ export async function startPDS(config: PDSConfig) {
   app.post('/xrpc/com.atproto.server.createAccount', async (req, res) => {
     try {
       const { handle, email, password, walletAddress } = req.body;
-      
+
       // If walletAddress provided, use wallet-based signup
       if (walletAddress) {
         const result = await pdsService.createAccountWithWallet(walletAddress, handle);

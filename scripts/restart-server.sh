@@ -18,7 +18,7 @@ if command -v pm2 &> /dev/null; then
         pm2 restart daemon-node --update-env
         pm2 save
         echo -e "${GREEN}✅ Server restarted${NC}"
-        
+
         echo ""
         pm2 status daemon-node
         exit 0
@@ -30,7 +30,7 @@ if systemctl is-active --quiet daemon-node 2>/dev/null; then
     echo -e "${YELLOW}Restarting systemd service...${NC}"
     sudo systemctl restart daemon-node
     echo -e "${GREEN}✅ Server restarted${NC}"
-    
+
     echo ""
     sudo systemctl status daemon-node --no-pager -l
     exit 0

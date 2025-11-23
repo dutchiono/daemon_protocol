@@ -28,7 +28,7 @@ echo ""
 if ! command -v psql &> /dev/null; then
     echo "⚠️  PostgreSQL is not installed."
     echo ""
-    
+
     if [ "$OS" == "debian" ]; then
         echo "Installing PostgreSQL (Ubuntu/Debian)..."
         sudo apt update
@@ -110,18 +110,18 @@ if [ ! -f "$SCHEMA_FILE" ]; then
     echo "   psql -U $DB_USER -d $DB_NAME -f backend/db/social-schema.sql"
 else
     echo "Applying database schema..."
-    
+
     # Set PGPASSWORD for non-interactive connection
     export PGPASSWORD="$DB_PASSWORD"
-    
+
     if [ "$OS" == "macos" ]; then
         psql -U "$DB_USER" -d "$DB_NAME" -f "$SCHEMA_FILE" || echo "⚠️  Schema application had errors (tables may already exist)"
     else
         sudo -u postgres psql -d "$DB_NAME" -f "$SCHEMA_FILE" || echo "⚠️  Schema application had errors (tables may already exist)"
     fi
-    
+
     unset PGPASSWORD
-    
+
     echo "✅ Schema applied"
 fi
 

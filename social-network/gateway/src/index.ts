@@ -22,7 +22,7 @@ async function initializeGateway(config: Config) {
 
   // Setup API endpoints BEFORE returning
   setupAPI(app, gatewayService, config);
-  
+
   // Verify routes were registered
   console.log('API routes registered successfully');
 
@@ -203,10 +203,10 @@ const config: Config = {
 (async () => {
   try {
     const { gatewayService } = await initializeGateway(config);
-    
+
     // Ensure routes are set up before starting server
     console.log('Routes registered, starting server...');
-    
+
     app.listen(PORT, () => {
       console.log(`Gateway server running on port ${PORT}`);
       console.log(`Gateway ID: ${gatewayService.getGatewayId()}`);
