@@ -17,8 +17,10 @@ export class ReplicationEngine {
   }
 
   async start(): Promise<void> {
-    // Initial replication sync
-    await this.syncWithFederation();
+    // Initial replication sync (non-blocking - don't fail if sync fails)
+    this.syncWithFederation().catch((error) => {
+      console.error('Initial replication sync failed (non-fatal):', error);
+    });
 
     // Setup periodic replication (every 10 minutes)
     this.replicationInterval = setInterval(() => {
@@ -43,8 +45,14 @@ export class ReplicationEngine {
   }
 
   private async syncWithPeer(peerPds: string): Promise<void> {
-    // Get our latest records
-    const ourLatest = await this.db.getLatestRecordTimestamp();
+    // Get our latest records (handle errors gracefully)
+    let ourLatest: Date | null = null;
+    try {
+      ourLatest = await this.db.getLatestRecordTimestamp();
+    } catch (error) {
+      console.warn('Could not get latest record timestamp (non-fatal):', error);
+      return; // Skip sync if we can't get timestamp
+    }
 
     // Request records from peer since our latest
     // This would use HTTP API to fetch from peer PDS

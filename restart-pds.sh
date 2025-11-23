@@ -22,9 +22,17 @@ echo "4️⃣  Starting PDS with environment variables..."
 export PDS_PORT="${PDS_PORT:-4002}"
 export PDS_ID="${PDS_ID:-pds-1}"
 export DATABASE_URL="${DATABASE_URL:-postgresql://daemon:daemon_password@localhost:5432/daemon}"
+export RPC_URL="${RPC_URL:-https://sepolia.base.org}"
+export ID_REGISTRY_ADDRESS="${ID_REGISTRY_ADDRESS:-}"
+
+if [ -z "$DATABASE_URL" ]; then
+  echo "❌ ERROR: DATABASE_URL is required!"
+  echo "   Please set DATABASE_URL environment variable"
+  exit 1
+fi
 
 cd ~/daemon
-pm2 start social-network/pds/dist/index.js --name daemon-pds
+pm2 start social-network/pds/dist/index.js --name daemon-pds --update-env
 echo ""
 
 echo "5️⃣  Waiting for PDS to start..."

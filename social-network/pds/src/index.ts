@@ -141,15 +141,33 @@ const config: Config = {
   pdsId: process.env.PDS_ID || '',
   federationPeers: process.env.FEDERATION_PEERS ? process.env.FEDERATION_PEERS.split(',') : [],
   ipfsGateway: process.env.IPFS_GATEWAY || 'https://ipfs.io/ipfs/',
+  rpcUrl: process.env.RPC_URL || 'https://sepolia.base.org',
 };
 
-initializePDS(config).then(({ pdsService }) => {
-  app.listen(PORT, () => {
-    console.log(`PDS server running on port ${PORT}`);
-    console.log(`PDS ID: ${pdsService.getPdsId()}`);
-  });
-}).catch((error) => {
-  console.error('Failed to initialize PDS:', error);
+// Validate required config
+if (!config.databaseUrl || config.databaseUrl.trim() === '') {
+  console.error('ERROR: DATABASE_URL is required for PDS');
+  console.error('Please set DATABASE_URL environment variable');
   process.exit(1);
-});
+}
+
+// Initialize and start server
+(async () => {
+  try {
+    console.log('Initializing PDS...');
+    const { pdsService } = await initializePDS(config);
+    
+    console.log('PDS initialized successfully, starting server...');
+    
+    app.listen(PORT, () => {
+      console.log(`PDS server running on port ${PORT}`);
+      console.log(`PDS ID: ${pdsService.getPdsId()}`);
+      console.log('PDS is ready to accept requests');
+    });
+  } catch (error) {
+    console.error('Failed to initialize PDS:', error);
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
+    process.exit(1);
+  }
+})();
 
