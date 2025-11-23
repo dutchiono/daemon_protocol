@@ -274,15 +274,18 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
         return res.status(400).json({ error: 'type is required and must be a string' });
       }
 
-      const validTypes = ['like', 'repost', 'quote'];
-      if (!validTypes.includes(type)) {
+      const validTypes: ('like' | 'repost' | 'quote')[] = ['like', 'repost', 'quote'];
+      if (!validTypes.includes(type as 'like' | 'repost' | 'quote')) {
         return res.status(400).json({
           error: `type must be one of: ${validTypes.join(', ')}. Received: ${type}`
         });
       }
 
-      console.log(`[Reactions] Creating reaction: did=${did}, targetHash=${targetHash}, type=${type}`);
-      const result = await gatewayService.createReaction(did, targetHash, type);
+      // Type assertion after validation
+      const reactionType: 'like' | 'repost' | 'quote' = type as 'like' | 'repost' | 'quote';
+
+      console.log(`[Reactions] Creating reaction: did=${did}, targetHash=${targetHash}, type=${reactionType}`);
+      const result = await gatewayService.createReaction(did, targetHash, reactionType);
       res.json(result);
     } catch (error) {
       console.error('[Reactions] Error creating reaction:', error);
@@ -306,7 +309,9 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
         return res.status(400).json({ error: 'voteType must be UP or DOWN' });
       }
 
-      const result = await gatewayService.createVote(did, hash, 'post', voteType);
+      // Type assertion after validation
+      const validatedVoteType: 'UP' | 'DOWN' = voteType as 'UP' | 'DOWN';
+      const result = await gatewayService.createVote(did, hash, 'post', validatedVoteType);
 
       // Return updated vote counts
       const votes = await gatewayService.getPostVotes(hash);
@@ -329,7 +334,9 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
         return res.status(400).json({ error: 'voteType must be UP or DOWN' });
       }
 
-      const result = await gatewayService.createVote(did, hash, 'comment', voteType);
+      // Type assertion after validation
+      const validatedVoteType: 'UP' | 'DOWN' = voteType as 'UP' | 'DOWN';
+      const result = await gatewayService.createVote(did, hash, 'comment', validatedVoteType);
 
       // Return updated vote counts
       const votes = await gatewayService.getPostVotes(hash);
