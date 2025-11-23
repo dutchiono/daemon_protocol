@@ -19,13 +19,10 @@ export class AggregationLayer {
 
   constructor(config: Config) {
     this.config = config;
-    // Only create database pool if databaseUrl is provided and not empty
-    if (config.databaseUrl && config.databaseUrl.trim() !== '') {
-      this.db = new Pool({ connectionString: config.databaseUrl });
-    } else {
-      // Create a dummy pool that will fail gracefully
-      this.db = null as any;
+    if (!config.databaseUrl || config.databaseUrl.trim() === '') {
+      throw new Error('DATABASE_URL is required');
     }
+    this.db = new Pool({ connectionString: config.databaseUrl });
     this.hubEndpoints = config.hubEndpoints;
     this.pdsEndpoints = config.pdsEndpoints;
 
@@ -37,10 +34,6 @@ export class AggregationLayer {
   }
 
   async getFollows(fid: number): Promise<number[]> {
-    // Return empty array if no database configured
-    if (!this.config.databaseUrl || !this.config.databaseUrl.trim() || !this.db) {
-      return [];
-    }
 
     // Check cache first
     const cacheKey = `follows:${fid}`;
@@ -227,11 +220,6 @@ export class AggregationLayer {
   }
 
   async getProfile(fid: number): Promise<Profile | null> {
-    // Return null if no database configured
-    if (!this.config.databaseUrl || !this.config.databaseUrl.trim() || !this.db) {
-      return null;
-    }
-
     // Check cache
     if (this.redis) {
       const cached = await this.redis.get(`profile:${fid}`);
@@ -280,9 +268,6 @@ export class AggregationLayer {
       website?: string;
     }
   ): Promise<Profile> {
-    if (!this.config.databaseUrl || !this.config.databaseUrl.trim() || !this.db) {
-      throw new Error('Database not configured');
-    }
     // Build update query dynamically
     const updateFields: string[] = [];
     const values: any[] = [];
@@ -381,9 +366,6 @@ export class AggregationLayer {
   }
 
   async getUnreadNotificationCount(fid: number): Promise<number> {
-    if (!this.config.databaseUrl || !this.config.databaseUrl.trim() || !this.db) {
-      return 0;
-    }
 
     try {
       // Count reactions on user's posts (likes, reposts, replies)
