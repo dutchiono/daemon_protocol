@@ -13,6 +13,9 @@ export class AggregationLayer {
     pdsEndpoints;
     constructor(config) {
         this.config = config;
+        if (!config.databaseUrl || config.databaseUrl.trim() === '') {
+            throw new Error('DATABASE_URL is required');
+        }
         this.db = new Pool({ connectionString: config.databaseUrl });
         this.hubEndpoints = config.hubEndpoints;
         this.pdsEndpoints = config.pdsEndpoints;
@@ -32,7 +35,7 @@ export class AggregationLayer {
         }
         // Query database
         const result = await this.db.query(`SELECT following_fid FROM follows
-       WHERE follower_fid = $1 AND active = true`, [fid]);
+         WHERE follower_fid = $1 AND active = true`, [fid]);
         const follows = result.rows.map((row) => parseInt(row.following_fid));
         // Cache result
         if (this.redis) {
@@ -264,7 +267,7 @@ export class AggregationLayer {
             const result = await this.db.query(`SELECT COUNT(DISTINCT r.id) as count
          FROM reactions r
          INNER JOIN messages m ON r.target_hash = m.hash
-         WHERE m.fid = $1 
+         WHERE m.fid = $1
            AND r.fid != $1
            AND m.timestamp > $2
            AND r.active = true`, [fid, sevenDaysAgo]);
@@ -272,7 +275,7 @@ export class AggregationLayer {
             // Count new follows (people who followed you in last 7 days)
             const followResult = await this.db.query(`SELECT COUNT(*) as count
          FROM follows
-         WHERE following_fid = $1 
+         WHERE following_fid = $1
            AND active = true
            AND timestamp > $2`, [fid, sevenDaysAgo]);
             const followCount = parseInt(followResult.rows[0]?.count || '0');
