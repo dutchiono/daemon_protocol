@@ -37,7 +37,7 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
   // Otherwise, it's a direct PDS URL and we need to add /xrpc
   const PDS_URL = PDS_BASE.replace(/\/+$/, ''); // Remove trailing slashes
   const needsXrpcPrefix = !PDS_URL.endsWith('/xrpc');
-  
+
   // Use getBaseUrl() for Gateway URL to auto-detect HTTPS
   const getGatewayUrl = () => {
     if (typeof window !== 'undefined') {

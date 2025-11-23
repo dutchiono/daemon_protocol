@@ -65,25 +65,56 @@ echo ""
 echo "3.5️⃣  Running database migrations..."
 run_migration() {
   local migration_file=$1
-  if [ -f "$migration_file" ]; then
-    if [ -n "$DATABASE_URL" ]; then
-      psql "$DATABASE_URL" -f "$migration_file" 2>/dev/null || \
-      psql -U daemon -d daemon -f "$migration_file" 2>/dev/null || \
-      echo "   ⚠️  Migration $migration_file skipped (may already be applied or DB not accessible)"
-    else
-      psql -U daemon -d daemon -f "$migration_file" 2>/dev/null || \
-      echo "   ⚠️  Migration $migration_file skipped (DATABASE_URL not set or DB not accessible)"
+  if [ ! -f "$migration_file" ]; then
+    echo "   ⚠️  Migration file $migration_file not found, skipping"
+    return 0
+  fi
+  
+  echo "   Running migration: $migration_file"
+  local exit_code=0
+  
+  if [ -n "$DATABASE_URL" ]; then
+    psql "$DATABASE_URL" -f "$migration_file" || exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+      echo "   ⚠️  Migration failed with DATABASE_URL, trying direct connection..."
+      psql -U daemon -d daemon -f "$migration_file" || exit_code=$?
     fi
   else
-    echo "   ⚠️  Migration file $migration_file not found, skipping"
+    psql -U daemon -d daemon -f "$migration_file" || exit_code=$?
+  fi
+  
+  if [ $exit_code -ne 0 ]; then
+    echo "   ❌ Migration $migration_file FAILED with exit code $exit_code"
+    echo "   Check the errors above and fix them before continuing"
+    echo "   You may need to run migrations manually or fix permissions"
+    return $exit_code
+  else
+    echo "   ✅ Migration $migration_file completed successfully"
   fi
 }
 
 # Run FID to DID migration (adds did columns)
-run_migration "backend/db/migrate-fid-to-did.sql"
+if ! run_migration "backend/db/migrate-fid-to-did.sql"; then
+  echo "   ⚠️  FID to DID migration had errors, but continuing..."
+fi
 
 # Run migration to remove FID completely and use DID as primary key
-run_migration "backend/db/migrations/remove-fid-completely.sql"
+if ! run_migration "backend/db/migrations/remove-fid-completely.sql"; then
+  echo "   ❌ CRITICAL: remove-fid-completely migration failed!"
+  echo "   This migration is required for the system to work correctly."
+  echo "   Please fix the errors above and run the migration manually:"
+  echo "   psql -U daemon -d daemon -f backend/db/migrations/remove-fid-completely.sql"
+  echo ""
+  echo "   Common issues:"
+  echo "   - Permission errors: Run as postgres superuser or grant ownership"
+  echo "   - Constraint errors: Some constraints may need manual CASCADE drops"
+  echo ""
+  read -p "   Continue anyway? (y/N) " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    exit 1
+  fi
+fi
 
 # Run votes table migration (for Reddit-style voting system)
 # Use absolute path from repo root to ensure it's found
