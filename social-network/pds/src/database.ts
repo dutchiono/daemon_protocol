@@ -121,7 +121,12 @@ export class Database {
 
     if (result.rows.length === 0) return null;
 
-    return JSON.parse(result.rows[0].record_data);
+    // record_data is JSONB, so it's already an object, not a string
+    const recordData = result.rows[0].record_data;
+    if (typeof recordData === 'string') {
+      return JSON.parse(recordData);
+    }
+    return recordData;
   }
 
   async listRecords(
@@ -143,7 +148,14 @@ export class Database {
 
     const result = await this.pool.query(query, params);
 
-    const records = result.rows.map((row: any) => JSON.parse(row.record_data));
+    // record_data is JSONB, so it's already an object, not a string
+    const records = result.rows.map((row: any) => {
+      const recordData = row.record_data;
+      if (typeof recordData === 'string') {
+        return JSON.parse(recordData);
+      }
+      return recordData;
+    });
     const newCursor = records.length > 0 ? result.rows[result.rows.length - 1].created_at : undefined;
 
     return { records, cursor: newCursor };
@@ -178,7 +190,12 @@ export class Database {
 
     if (result.rows.length === 0) return null;
 
-    return JSON.parse(result.rows[0].record_data);
+    // record_data is JSONB, so it's already an object, not a string
+    const recordData = result.rows[0].record_data;
+    if (typeof recordData === 'string') {
+      return JSON.parse(recordData);
+    }
+    return recordData;
   }
 
   async exportUserData(did: string): Promise<any> {

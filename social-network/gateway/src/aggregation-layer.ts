@@ -4,6 +4,7 @@
  */
 import pg from 'pg';
 import Redis from 'redis';
+import { ethers } from 'ethers';
 import type { Config } from './config.js';
 // Removed didToFid import - using DIDs directly throughout
 import type { Reaction } from './types.js';
@@ -254,17 +255,30 @@ export class AggregationLayer {
 
         const result: any = await response.json();
 
+        // Calculate proper hash for Hub (keccak256 of message content, matching Hub's calculation)
+        const timestamp = Math.floor(Date.now() / 1000);
+        const messageContent = JSON.stringify({
+            did: did,
+            text: text,
+            timestamp: timestamp,
+            parentHash: parentHash || null,
+            mentions: [],
+            embeds: embeds || []
+        });
+        // Use ethers.keccak256 to match Hub's hash calculation
+        const messageHash = ethers.keccak256(ethers.toUtf8Bytes(messageContent));
+
         // Also submit to hubs for propagation
         for (const hubEndpoint of this.hubEndpoints) {
             try {
                 const hubMessage = {
-                    hash: result.uri,
+                    hash: messageHash,
                     did: did,
                     text,
                     messageType: parentHash ? 'reply' : 'post' as 'post' | 'reply',
                     parentHash: parentHash || undefined,
                     rootParentHash: parentHash || undefined, // For now, same as parentHash
-                    timestamp: Math.floor(Date.now() / 1000),
+                    timestamp: timestamp,
                     embeds: embeds || [],
                     deleted: false
                 };
