@@ -131,7 +131,7 @@ export class AggregationLayer {
     embeds?: any[]
   ): Promise<Post> {
     console.log('[AggregationLayer] createPost - Starting for did:', did);
-    
+
     // Convert did to fid for getUserPDS
     let fid: number;
     try {
@@ -166,10 +166,10 @@ export class AggregationLayer {
         embed: embeds?.[0]
       }
     };
-    
+
     console.log('[AggregationLayer] createPost - Requesting PDS:', `${userPds}/xrpc/com.atproto.repo.createRecord`);
     console.log('[AggregationLayer] createPost - Request body:', JSON.stringify(requestBody, null, 2));
-    
+
     const response = await fetch(`${userPds}/xrpc/com.atproto.repo.createRecord`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -179,6 +179,81 @@ export class AggregationLayer {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[AggregationLayer] createPost - PDS error response:', response.status, errorText);
+      
+      // If user not found, try to create PDS account automatically
+      if (response.status === 400 || response.status === 404) {
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.error?.includes('User not found') || errorJson.error?.includes('not found')) {
+            console.log('[AggregationLayer] createPost - User not found in PDS, attempting to create account...');
+            // Try to get wallet address from users table
+            const userResult = await this.db.query(
+              `SELECT address FROM users WHERE did = $1`,
+              [did]
+            );
+            const walletAddress = userResult.rows[0]?.address;
+            
+            // Extract handle from profiles table
+            const profileResult = await this.db.query(
+              `SELECT username FROM profiles WHERE did = $1`,
+              [did]
+            );
+            const handle = profileResult.rows[0]?.username;
+
+            // Create PDS account
+            await this.ensurePDSAccount(did, walletAddress !== `0x${'0'.repeat(40)}` ? walletAddress : undefined, handle);
+
+            // Retry post creation
+            console.log('[AggregationLayer] createPost - Retrying post creation after PDS account creation...');
+            const retryResponse = await fetch(`${userPds}/xrpc/com.atproto.repo.createRecord`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(requestBody)
+            });
+
+            if (retryResponse.ok) {
+              const retryResult = await retryResponse.json();
+              // Continue with normal flow
+              const finalResult = retryResult;
+              
+              // Submit to hubs
+              if (this.hubEndpoints.length > 0) {
+                for (const hubEndpoint of this.hubEndpoints) {
+                  try {
+                    await fetch(`${hubEndpoint}/api/v1/messages`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        hash: (finalResult as any).uri,
+                        did,
+                        text,
+                        parentHash,
+                        timestamp: Math.floor(Date.now() / 1000),
+                        embeds
+                      })
+                    });
+                  } catch (error) {
+                    console.error(`Failed to submit to hub ${hubEndpoint}:`, error);
+                  }
+                }
+              }
+
+              return {
+                hash: (finalResult as any).uri,
+                did,
+                text,
+                parentHash,
+                timestamp: Math.floor(Date.now() / 1000),
+                embeds: embeds || []
+              };
+            }
+          }
+        } catch (parseError) {
+          // Not a JSON error, continue with original error
+        }
+      }
+
+      // Original error handling
       let errorMessage = 'Failed to create post on PDS';
       try {
         const errorJson = JSON.parse(errorText);
@@ -224,12 +299,17 @@ export class AggregationLayer {
     };
   }
 
-  async getPost(hash: string): Promise<Post | null> {
+  async getPost(hash: string, userDid?: string | null): Promise<Post | null> {
     // Check cache
     if (this.redis) {
       const cached = await this.redis.get(`post:${hash}`);
       if (cached) {
-        return JSON.parse(cached);
+        const post = JSON.parse(cached) as Post;
+        // Enrich with votes if userDid provided
+        if (userDid) {
+          return await this.enrichPostWithVotes(post, userDid);
+        }
+        return post;
       }
     }
 
@@ -242,6 +322,10 @@ export class AggregationLayer {
           // Cache
           if (this.redis) {
             await this.redis.setEx(`post:${hash}`, 3600, JSON.stringify(post)); // 1 hour cache
+          }
+          // Enrich with votes if userDid provided
+          if (userDid) {
+            return await this.enrichPostWithVotes(post as Post, userDid);
           }
           return post as Post | null;
         }
@@ -304,6 +388,7 @@ export class AggregationLayer {
       avatar?: string;
       banner?: string;
       website?: string;
+      walletAddress?: string; // Optional wallet address for PDS account creation
     }
   ): Promise<Profile> {
     // Convert did to fid for database operations
@@ -315,17 +400,22 @@ export class AggregationLayer {
       [fid]
     );
 
-    if (userCheck.rows.length === 0) {
+    const isNewUser = userCheck.rows.length === 0;
+
+    if (isNewUser) {
       // Create user if it doesn't exist
-      // Use a placeholder address since we don't have wallet address in this context
-      // The address will be updated when the user connects their wallet
-      const placeholderAddress = `0x${'0'.repeat(40)}`; // 0x0000...0000
+      // Use wallet address if provided, otherwise placeholder
+      const address = updates.walletAddress || `0x${'0'.repeat(40)}`; // 0x0000...0000
       await this.db.query(
         `INSERT INTO users (fid, address, did, created_at)
          VALUES ($1, $2, $3, NOW())
          ON CONFLICT (fid) DO UPDATE SET did = $3`,
-        [fid, placeholderAddress, did]
+        [fid, address, did]
       );
+
+      // For new users, ensure PDS account exists
+      // This unifies account creation - Gateway and PDS accounts created together
+      await this.ensurePDSAccount(did, updates.walletAddress, updates.username);
     } else {
       // Update did if it's missing
       await this.db.query(
@@ -640,7 +730,7 @@ export class AggregationLayer {
 
     // Query database
     const result = await this.db.query(
-      `SELECT 
+      `SELECT
         COUNT(*) FILTER (WHERE vote_type = 'UP') as upvotes,
         COUNT(*) FILTER (WHERE vote_type = 'DOWN') as downvotes
        FROM votes
@@ -754,6 +844,64 @@ export class AggregationLayer {
     // Gateway makes server-side requests, so use direct PDS URL
     // Nginx proxy is only for client-side requests
     return this.pdsEndpoints[0];
+  }
+
+  /**
+   * Ensure PDS account exists for a given DID
+   * Creates account if it doesn't exist, idempotent operation
+   */
+  private async ensurePDSAccount(did: string, walletAddress?: string, handle?: string): Promise<void> {
+    if (!this.pdsEndpoints || this.pdsEndpoints.length === 0) {
+      console.warn('[AggregationLayer] ensurePDSAccount - PDS_ENDPOINTS not configured, skipping');
+      return;
+    }
+
+    const userPds = this.pdsEndpoints[0];
+    
+    // First, check if account already exists
+    try {
+      const checkResponse = await fetch(`${userPds}/xrpc/com.atproto.repo.getProfile?did=${encodeURIComponent(did)}`);
+      if (checkResponse.ok) {
+        console.log('[AggregationLayer] ensurePDSAccount - PDS account already exists for:', did);
+        return; // Account exists, nothing to do
+      }
+    } catch (error) {
+      // If check fails, proceed to create account
+      console.log('[AggregationLayer] ensurePDSAccount - Account check failed, will create:', did);
+    }
+
+    // Account doesn't exist, create it
+    try {
+      console.log('[AggregationLayer] ensurePDSAccount - Creating PDS account for:', did, 'wallet:', walletAddress);
+      
+      const createBody: any = {};
+      if (walletAddress) {
+        createBody.walletAddress = walletAddress;
+      }
+      if (handle) {
+        createBody.handle = handle;
+      }
+
+      const createResponse = await fetch(`${userPds}/xrpc/com.atproto.server.createAccount`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(createBody)
+      });
+
+      if (!createResponse.ok) {
+        const errorText = await createResponse.text();
+        console.error('[AggregationLayer] ensurePDSAccount - Failed to create PDS account:', createResponse.status, errorText);
+        throw new Error(`Failed to create PDS account: ${errorText}`);
+      }
+
+      const result = await createResponse.json();
+      console.log('[AggregationLayer] ensurePDSAccount - PDS account created successfully:', result);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[AggregationLayer] ensurePDSAccount - Error creating PDS account:', errorMessage);
+      // Don't throw - allow Gateway profile to exist without PDS account
+      // The fallback in createPost will handle it
+    }
   }
 
   private deduplicatePosts(posts: Post[]): Post[] {

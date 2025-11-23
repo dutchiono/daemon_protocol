@@ -68,7 +68,14 @@ run_migration() {
 run_migration "backend/db/migrate-fid-to-did.sql"
 
 # Run votes table migration (for Reddit-style voting system)
-run_migration "backend/db/migrations/add-votes-table.sql"
+# Use absolute path from repo root to ensure it's found
+MIGRATION_FILE="backend/db/migrations/add-votes-table.sql"
+if [ -f "$MIGRATION_FILE" ]; then
+  run_migration "$MIGRATION_FILE"
+else
+  # Try alternative path
+  run_migration "$(pwd)/backend/db/migrations/add-votes-table.sql"
+fi
 
 echo "   ✅ Migration check complete"
 echo ""

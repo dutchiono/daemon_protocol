@@ -60,7 +60,7 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
     try {
       const { did, text, parentHash, embeds } = req.body;
       console.log('[Gateway] POST /api/v1/posts - Request body:', { did, text: text?.substring(0, 50), parentHash, hasEmbeds: !!embeds });
-      
+
       if (!did) {
         console.error('[Gateway] POST /api/v1/posts - Missing did');
         return res.status(400).json({ error: 'did is required' });
@@ -73,7 +73,7 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
         console.error('[Gateway] POST /api/v1/posts - Missing or empty text');
         return res.status(400).json({ error: 'text is required and cannot be empty' });
       }
-      
+
       console.log('[Gateway] POST /api/v1/posts - Creating post for did:', did);
       const result = await gatewayService.createPost(did, text, parentHash, embeds);
       console.log('[Gateway] POST /api/v1/posts - Post created successfully:', result.hash);
@@ -143,7 +143,7 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
         return res.status(400).json({ error: 'Invalid did format. Expected did:daemon:${fid}' });
       }
 
-      const { username, displayName, bio, avatar, banner, website } = req.body;
+      const { username, displayName, bio, avatar, banner, website, walletAddress } = req.body;
 
       const profile = await gatewayService.updateProfile(did, {
         username,
@@ -151,7 +151,8 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
         bio,
         avatar,
         banner,
-        website
+        website,
+        walletAddress // Pass wallet address for PDS account creation
       });
 
       res.json(profile);
@@ -206,16 +207,16 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
     try {
       const { hash } = req.params;
       const { did, voteType } = req.body;
-      
+
       if (!did) {
         return res.status(400).json({ error: 'did is required' });
       }
       if (!voteType || (voteType !== 'UP' && voteType !== 'DOWN')) {
         return res.status(400).json({ error: 'voteType must be UP or DOWN' });
       }
-      
+
       const result = await gatewayService.createVote(did, hash, 'post', voteType);
-      
+
       // Return updated vote counts
       const votes = await gatewayService.getPostVotes(hash);
       res.json({ ...result, votes });
@@ -228,16 +229,16 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
     try {
       const { hash } = req.params;
       const { did, voteType } = req.body;
-      
+
       if (!did) {
         return res.status(400).json({ error: 'did is required' });
       }
       if (!voteType || (voteType !== 'UP' && voteType !== 'DOWN')) {
         return res.status(400).json({ error: 'voteType must be UP or DOWN' });
       }
-      
+
       const result = await gatewayService.createVote(did, hash, 'comment', voteType);
-      
+
       // Return updated vote counts
       const votes = await gatewayService.getPostVotes(hash);
       res.json({ ...result, votes });

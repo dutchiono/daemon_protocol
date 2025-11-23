@@ -5,7 +5,7 @@
 
 import { AggregationLayer } from './aggregation-layer.js';
 import type { Config } from './config.js';
-import type { Post, Profile, Feed, Reaction } from './types.js';
+import type { Post, Profile, Feed, Reaction, Vote } from './types.js';
 import { didToFid, fidToDid } from './did-utils.js';
 
 export class GatewayService {
@@ -44,10 +44,13 @@ export class GatewayService {
         cursor
       );
 
+      // Enrich posts with votes
+      const enrichedPosts = await this.aggregationLayer.enrichPostsWithVotes(posts, did);
+
       // Rank posts (algorithmic or chronological)
-      const rankedPosts = type === 'algorithmic'
-        ? await this.rankPostsAlgorithmically(posts, did)
-        : posts.sort((a, b) => b.timestamp - a.timestamp);
+      const rankedPosts = type === 'algorithmic' || type === 'hot' || type === 'top'
+        ? await this.rankPostsAlgorithmically(enrichedPosts, did, type)
+        : enrichedPosts.sort((a, b) => b.timestamp - a.timestamp);
 
       return {
         posts: rankedPosts.slice(0, limit),
@@ -72,8 +75,9 @@ export class GatewayService {
     return post;
   }
 
-  async getPost(hash: string): Promise<Post | null> {
-    return await this.aggregationLayer.getPost(hash);
+  async getPost(hash: string, userDid?: string | null): Promise<Post | null> {
+    // getPost now handles vote enrichment internally if userDid is provided
+    return await this.aggregationLayer.getPost(hash, userDid);
   }
 
   async getProfile(did: string): Promise<Profile | null> {
@@ -89,6 +93,7 @@ export class GatewayService {
       avatar?: string;
       banner?: string;
       website?: string;
+      walletAddress?: string; // Optional wallet address for PDS account creation
     }
   ): Promise<Profile> {
     return await this.aggregationLayer.updateProfile(did, updates);
@@ -115,6 +120,23 @@ export class GatewayService {
     return await this.aggregationLayer.createReaction(fid, targetHash, type);
   }
 
+  async createVote(
+    did: string,
+    targetHash: string,
+    targetType: 'post' | 'comment',
+    voteType: 'UP' | 'DOWN'
+  ): Promise<Vote> {
+    return await this.aggregationLayer.createVote(did, targetHash, targetType, voteType);
+  }
+
+  async getPostVotes(targetHash: string): Promise<{
+    voteCount: number;
+    upvoteCount: number;
+    downvoteCount: number;
+  }> {
+    return await this.aggregationLayer.getPostVotes(targetHash);
+  }
+
   async search(query: string, type: string, limit: number): Promise<any> {
     if (type === 'posts') {
       return await this.aggregationLayer.searchPosts(query, limit);
@@ -128,26 +150,40 @@ export class GatewayService {
     return await this.aggregationLayer.getUnreadNotificationCount(did);
   }
 
-  private async rankPostsAlgorithmically(posts: Post[], did: string): Promise<Post[]> {
-    // Simple algorithmic ranking based on:
-    // - Recency (time decay)
-    // - Engagement (likes, reposts, replies)
-    // - User interactions (follows, previous engagement)
-
+  private async rankPostsAlgorithmically(posts: Post[], did: string, feedType: string = 'hot'): Promise<Post[]> {
     const now = Date.now() / 1000;
 
-    const scored = posts.map(post => {
+    const scored = await Promise.all(posts.map(async post => {
       const age = now - post.timestamp;
-      const timeScore = Math.exp(-age / (7 * 24 * 60 * 60)); // 7 day half-life
+      
+      // Get vote counts if not already enriched
+      const voteCount = post.voteCount ?? 0;
+      const upvoteCount = post.upvoteCount ?? 0;
+      const downvoteCount = post.downvoteCount ?? 0;
 
-      // Engagement score (would need to fetch reactions)
-      const engagementScore = 1.0; // Placeholder
+      let score = 0;
 
-      // Combined score
-      const score = timeScore * 0.6 + engagementScore * 0.4;
+      if (feedType === 'top') {
+        // Top: Sort by vote count only (all time)
+        score = voteCount;
+      } else if (feedType === 'hot') {
+        // Hot: Reddit's hot algorithm (vote score weighted by age)
+        // Score = (upvotes - downvotes) / time^1.5 (roughly)
+        const timeWeight = Math.pow(age + 2, 1.5); // Add 2 to prevent division by 0
+        score = voteCount / timeWeight;
+        
+        // Boost recent posts slightly
+        if (age < 3600) score *= 1.2; // Boost posts < 1 hour old
+        if (age < 300) score *= 1.5; // Boost posts < 5 minutes old
+      } else {
+        // Default algorithmic: recency + votes
+        const timeScore = Math.exp(-age / (7 * 24 * 60 * 60)); // 7 day half-life
+        const voteScore = Math.log(Math.max(1, voteCount + 1)); // Log scale for votes
+        score = timeScore * 0.5 + voteScore * 0.5;
+      }
 
       return { post, score };
-    });
+    }));
 
     return scored
       .sort((a, b) => b.score - a.score)
