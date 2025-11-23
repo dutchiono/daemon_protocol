@@ -5,8 +5,13 @@ echo "=========================="
 echo ""
 
 echo "1️⃣  Stopping ALL services..."
+# Stop all PM2 processes
 pm2 stop all 2>/dev/null || true
 pm2 delete all 2>/dev/null || true
+
+# Specifically stop daemon-node if it exists (it might be running with 'all' command)
+pm2 stop daemon-node 2>/dev/null || true
+pm2 delete daemon-node 2>/dev/null || true
 echo ""
 
 echo "2️⃣  Killing processes on ports 4001, 4002, 4003..."
