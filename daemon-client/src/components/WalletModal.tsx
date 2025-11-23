@@ -16,7 +16,9 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [fidJustRegistered, setFidJustRegistered] = useState(false);
 
-  const PDS_URL = import.meta.env.VITE_PDS_URL || 'http://50.21.187.69:4002';
+  // Normalize PDS URL - remove trailing /xrpc if present (Nginx proxies /xrpc/ to PDS)
+  const PDS_BASE = import.meta.env.VITE_PDS_URL || 'http://50.21.187.69:4002';
+  const PDS_URL = PDS_BASE.replace(/\/xrpc\/?$/, '');
   const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || 'http://localhost:4003';
 
   // Check if user has a profile/username
@@ -29,15 +31,15 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
 
   const hasProfile = !!existingProfile && existingProfile.username && existingProfile.username !== `fid-${did}`;
   const needsUsername = did && !hasProfile && !checkingProfile;
-  
+
   // Check if PDS account exists by trying to get profile from PDS
   const [checkingPDSAccount, setCheckingPDSAccount] = useState(false);
   const [needsPDSAccount, setNeedsPDSAccount] = useState(false);
-  
+
   useEffect(() => {
     const checkPDSAccount = async () => {
       if (!did || !hasProfile || !address) return;
-      
+
       setCheckingPDSAccount(true);
       try {
         // Try to get profile from PDS - if it fails, we need to create PDS account
@@ -54,7 +56,7 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
         setCheckingPDSAccount(false);
       }
     };
-    
+
     if (hasProfile && did && address) {
       checkPDSAccount();
     }
@@ -86,7 +88,7 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
 
   const handleCreateAccount = async () => {
     if (!address || !did) return;
-    
+
     // Use existing username if available, otherwise use input
     const handleToUse = existingProfile?.username || username.trim();
     if (!handleToUse) {
