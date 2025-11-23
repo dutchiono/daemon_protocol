@@ -4,6 +4,16 @@ echo "🚀 Starting All Services"
 echo "=========================="
 echo ""
 
+# Source .env file if it exists
+if [ -f .env ]; then
+  echo "📄 Loading environment variables from .env file..."
+  set -a
+  source .env
+  set +a
+  echo "✅ Environment variables loaded"
+  echo ""
+fi
+
 echo "1️⃣  Stopping all services and freeing ports..."
 # Stop all PM2 processes
 pm2 stop all 2>/dev/null || true
