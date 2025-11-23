@@ -21,7 +21,15 @@ echo ""
 # Start Gateway with DATABASE_URL
 echo "3️⃣  Starting Gateway with DATABASE_URL..."
 cd social-network/gateway
-pm2 start dist/index.js --name daemon-gateway --update-env -- \
+
+# Stop and delete first
+pm2 stop daemon-gateway 2>/dev/null || true
+pm2 delete daemon-gateway 2>/dev/null || true
+
+# Start with environment variables
+pm2 start dist/index.js --name daemon-gateway \
+    --update-env \
+    -- \
     GATEWAY_PORT=4003 \
     GATEWAY_ID="gateway-1" \
     HUB_ENDPOINTS="http://localhost:4001" \
@@ -29,6 +37,10 @@ pm2 start dist/index.js --name daemon-gateway --update-env -- \
     DATABASE_URL="postgresql://daemon:daemon_password@localhost:5432/daemon" \
     REDIS_URL="" \
     X402_SERVICE_URL="http://localhost:3000"
+
+# Alternative: Use env file or export
+# export DATABASE_URL="postgresql://daemon:daemon_password@localhost:5432/daemon"
+# pm2 start dist/index.js --name daemon-gateway --update-env
 
 pm2 save
 echo "   ✅ Gateway started"
