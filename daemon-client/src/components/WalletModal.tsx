@@ -16,9 +16,12 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [fidJustRegistered, setFidJustRegistered] = useState(false);
 
-  // Normalize PDS URL - remove trailing /xrpc if present (Nginx proxies /xrpc/ to PDS)
+  // Normalize PDS URL - handle both Nginx proxy (with /xrpc) and direct PDS (port 4002)
   const PDS_BASE = import.meta.env.VITE_PDS_URL || 'http://50.21.187.69:4002';
-  const PDS_URL = PDS_BASE.replace(/\/xrpc\/?$/, '');
+  // If URL already ends with /xrpc, use it as-is (don't add /xrpc again)
+  // Otherwise, it's a direct PDS URL and we need to add /xrpc
+  const PDS_URL = PDS_BASE.replace(/\/+$/, ''); // Remove trailing slashes
+  const needsXrpcPrefix = !PDS_URL.endsWith('/xrpc');
   const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || 'http://localhost:4003';
 
   // Check if user has a profile/username
@@ -43,7 +46,8 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
       setCheckingPDSAccount(true);
       try {
         // Try to get profile from PDS - if it fails, we need to create PDS account
-        const response = await axios.get(`${PDS_URL}/xrpc/com.atproto.repo.getProfile`, {
+        const endpoint = needsXrpcPrefix ? '/xrpc/com.atproto.repo.getProfile' : '/com.atproto.repo.getProfile';
+        const response = await axios.get(`${PDS_URL}${endpoint}`, {
           params: { did: `did:daemon:${did}` }
         });
         setNeedsPDSAccount(false);
@@ -98,7 +102,8 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
 
     setIsCreatingAccount(true);
     try {
-      const response = await axios.post(`${PDS_URL}/xrpc/com.atproto.server.createAccount`, {
+      const endpoint = needsXrpcPrefix ? '/xrpc/com.atproto.server.createAccount' : '/com.atproto.server.createAccount';
+      const response = await axios.post(`${PDS_URL}${endpoint}`, {
         walletAddress: address,
         handle: handleToUse
       });
