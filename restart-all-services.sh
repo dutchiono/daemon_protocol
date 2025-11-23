@@ -1,93 +1,119 @@
 #!/bin/bash
 
-echo "🔄 Restarting All Services with Proper Configuration"
-echo "====================================================="
+echo "🔄 Restarting All Services"
+echo "=========================="
 echo ""
 
+echo "1️⃣  Stopping ALL services..."
+pm2 stop all 2>/dev/null || true
+pm2 delete all 2>/dev/null || true
+echo ""
+
+echo "2️⃣  Killing processes on ports 4001, 4002, 4003..."
+for port in 4001 4002 4003; do
+  PIDS=$(lsof -ti:$port 2>/dev/null || true)
+  if [ -n "$PIDS" ]; then
+    echo "   Killing processes on port $port: $PIDS"
+    kill -9 $PIDS 2>/dev/null || true
+  else
+    echo "   Port $port is free"
+  fi
+done
+sleep 2
+echo ""
+
+echo "3️⃣  Verifying ports are free..."
+for port in 4001 4002 4003; do
+  if lsof -ti:$port >/dev/null 2>&1; then
+    echo "   ⚠️  Port $port is still in use, force killing..."
+    lsof -ti:$port | xargs kill -9 2>/dev/null || true
+    sleep 1
+  fi
+done
+echo ""
+
+echo "4️⃣  Setting environment variables..."
+export DATABASE_URL="${DATABASE_URL:-postgresql://daemon:daemon_password@localhost:5432/daemon}"
+export GATEWAY_PORT="${GATEWAY_PORT:-4003}"
+export GATEWAY_ID="${GATEWAY_ID:-gateway-1}"
+export HUB_ENDPOINTS="${HUB_ENDPOINTS:-http://localhost:4001}"
+export PDS_ENDPOINTS="${PDS_ENDPOINTS:-http://localhost:4002}"
+export PDS_PORT="${PDS_PORT:-4002}"
+export PDS_ID="${PDS_ID:-pds-1}"
+export RPC_URL="${RPC_URL:-https://sepolia.base.org}"
+export REDIS_URL="${REDIS_URL:-}"
+export X402_SERVICE_URL="${X402_SERVICE_URL:-http://localhost:3000}"
+
+if [ -z "$DATABASE_URL" ]; then
+  echo "❌ ERROR: DATABASE_URL is required!"
+  exit 1
+fi
+echo ""
+
+echo "5️⃣  Rebuilding services..."
 cd ~/daemon
 
-# Rebuild everything
-echo "1️⃣  Rebuilding services..."
-npm run build:pds
-npm run build:gateway
-echo "   ✅ Build complete"
-echo ""
+echo "   Building Hub..."
+cd social-network/hub
+npm run build
+cd ../..
 
-# Stop all services
-echo "2️⃣  Stopping services..."
-pm2 stop daemon-pds daemon-gateway 2>/dev/null || true
-pm2 delete daemon-pds daemon-gateway 2>/dev/null || true
-echo "   ✅ Stopped"
-echo ""
-
-# Export environment variables
-echo "3️⃣  Setting environment variables..."
-export DATABASE_URL="postgresql://daemon:daemon_password@localhost:5432/daemon"
-export PDS_PORT=4002
-export PDS_ID="pds-1"
-export FEDERATION_PEERS=""
-export IPFS_GATEWAY="https://ipfs.io/ipfs/"
-export GATEWAY_PORT=4003
-export GATEWAY_ID="gateway-1"
-export HUB_ENDPOINTS="http://localhost:4001"
-export PDS_ENDPOINTS="http://localhost:4002"
-export REDIS_URL=""
-export X402_SERVICE_URL="http://localhost:3000"
-
-echo "   Environment variables set"
-echo ""
-
-# Start PDS
-echo "4️⃣  Starting PDS..."
+echo "   Building PDS..."
 cd social-network/pds
-pm2 start dist/index.js --name daemon-pds --update-env
-pm2 save
-echo "   ✅ PDS started"
+npm run build
+cd ../..
+
+echo "   Building Gateway..."
+cd social-network/gateway
+npm run build
+cd ../..
 echo ""
 
-# Wait a moment
+echo "6️⃣  Starting services..."
+echo ""
+
+echo "   Starting Hub..."
+pm2 start social-network/hub/dist/index.js --name daemon-hub --update-env
 sleep 2
 
-# Test PDS
-echo "5️⃣  Testing PDS..."
-if curl -s http://localhost:4002/health > /dev/null; then
-    echo "   ✅ PDS is responding"
-else
-    echo "   ❌ PDS is not responding"
-    echo "   Check logs: pm2 logs daemon-pds --lines 20"
-fi
-echo ""
-
-# Start Gateway
-echo "6️⃣  Starting Gateway..."
-cd ../gateway
-pm2 start dist/index.js --name daemon-gateway --update-env
-pm2 save
-echo "   ✅ Gateway started"
-echo ""
-
-# Wait a moment
+echo "   Starting PDS..."
+pm2 start social-network/pds/dist/index.js --name daemon-pds --update-env
 sleep 2
 
-# Test Gateway
-echo "7️⃣  Testing Gateway..."
-if curl -s http://localhost:4003/health > /dev/null; then
-    echo "   ✅ Gateway is responding"
-    curl -s http://localhost:4003/health
-else
-    echo "   ❌ Gateway is not responding"
-    echo "   Check logs: pm2 logs daemon-gateway --lines 20"
-fi
+echo "   Starting Gateway..."
+pm2 start social-network/gateway/dist/index.js --name daemon-gateway --update-env
+sleep 3
 echo ""
 
-echo "====================================================="
-echo "✅ All Services Restarted!"
+echo "7️⃣  Service status:"
+pm2 list
 echo ""
-echo "📊 Check status:"
-echo "   pm2 list"
+
+echo "8️⃣  Testing services..."
 echo ""
-echo "📋 View logs:"
+echo "   Hub health:"
+curl -s http://localhost:4001/health || echo "   ❌ Hub not responding"
+echo ""
+echo ""
+
+echo "   PDS health:"
+curl -s http://localhost:4002/health || echo "   ❌ PDS not responding"
+echo ""
+echo ""
+
+echo "   Gateway health:"
+curl -s http://localhost:4003/health || echo "   ❌ Gateway not responding"
+echo ""
+echo ""
+
+echo "=========================="
+echo "✅ All services restarted!"
+echo ""
+echo "📊 View logs:"
+echo "   pm2 logs daemon-hub"
 echo "   pm2 logs daemon-pds"
 echo "   pm2 logs daemon-gateway"
 echo ""
-
+echo "📊 View all logs:"
+echo "   pm2 logs"
+echo ""
