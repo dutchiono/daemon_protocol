@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { likePost, repostPost, createPost, getReactions, getFeed, getReplies } from '../api/client';
+import { likePost, repostPost, quotePost, createPost, getReactions, getFeed, getReplies } from '../api/client';
 import { useWallet } from '../wallet/WalletProvider';
 import PostVoteClient from './post-vote/PostVoteClient';
 import RepliesSection from './RepliesSection';
@@ -37,6 +37,10 @@ export default function Post({ post }: PostProps) {
   const [showReplies, setShowReplies] = useState(false);
   const [showReplyInput, setShowReplyInput] = useState(false);
   const [replyText, setReplyText] = useState('');
+  const [showRepostMenu, setShowRepostMenu] = useState(false);
+  const [showQuoteCast, setShowQuoteCast] = useState(false);
+  const [quoteText, setQuoteText] = useState('');
+  const repostMenuRef = useRef<HTMLDivElement>(null);
 
   // Fetch reaction state for this post
   const { data: reactions } = useQuery({
@@ -102,6 +106,7 @@ export default function Post({ post }: PostProps) {
       return await repostPost(did, post.hash);
     },
     onSuccess: () => {
+      setShowRepostMenu(false);
       queryClient.invalidateQueries({ queryKey: ['reactions', post.hash, did] });
       queryClient.invalidateQueries({ queryKey: ['feed'] });
     },
@@ -110,6 +115,46 @@ export default function Post({ post }: PostProps) {
       alert('Failed to repost. Please try again.');
     },
   });
+
+  const { mutate: handleQuoteCast, isPending: isQuoting } = useMutation({
+    mutationFn: async (quoteText: string) => {
+      if (!did) throw new Error('Wallet not connected');
+      if (!quoteText.trim()) throw new Error('Quote text cannot be empty');
+      // First create the quote cast reaction
+      await quotePost(did, post.hash);
+      // Then create a post with the quote text (this will be the quote cast post)
+      // Note: The quote cast post should reference the original post
+      return await createPost(did, quoteText, post.hash);
+    },
+    onSuccess: () => {
+      setShowQuoteCast(false);
+      setQuoteText('');
+      setShowRepostMenu(false);
+      queryClient.invalidateQueries({ queryKey: ['reactions', post.hash, did] });
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+    },
+    onError: (error) => {
+      console.error('Failed to quote cast:', error);
+      alert('Failed to create quote cast. Please try again.');
+    },
+  });
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (repostMenuRef.current && !repostMenuRef.current.contains(event.target as Node)) {
+        setShowRepostMenu(false);
+      }
+    };
+
+    if (showRepostMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showRepostMenu]);
 
   const formatTimestamp = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
@@ -174,13 +219,40 @@ export default function Post({ post }: PostProps) {
             >
               ♥ {liked ? 'Liked' : 'Like'}
             </button>
-            <button
-              className={`post-action ${reposted ? 'reposted' : ''}`}
-              onClick={() => handleRepost()}
-              disabled={isReposting || !did}
-            >
-              ↻ {reposted ? 'Reposted' : 'Repost'}
-            </button>
+            <div className="repost-menu-container" ref={repostMenuRef}>
+              <button
+                className={`post-action ${reposted ? 'reposted' : ''}`}
+                onClick={() => setShowRepostMenu(!showRepostMenu)}
+                disabled={isReposting || isQuoting || !did}
+              >
+                ↻ {reposted ? 'Reposted' : 'Repost'}
+              </button>
+              {showRepostMenu && (
+                <div className="repost-dropdown">
+                  <button
+                    className="repost-option"
+                    onClick={() => {
+                      handleRepost();
+                    }}
+                    disabled={isReposting}
+                  >
+                    <span>↻ Repost</span>
+                    <span className="repost-option-desc">Share this post</span>
+                  </button>
+                  <button
+                    className="repost-option"
+                    onClick={() => {
+                      setShowRepostMenu(false);
+                      setShowQuoteCast(true);
+                    }}
+                    disabled={isQuoting}
+                  >
+                    <span>💬 Quote Cast</span>
+                    <span className="repost-option-desc">Share with your thoughts</span>
+                  </button>
+                </div>
+              )}
+            </div>
             <button
               className="post-action"
               onClick={() => {
@@ -241,6 +313,64 @@ export default function Post({ post }: PostProps) {
       {showReplies && !post.parentHash && (
         <div className="replies-thread">
           <RepliesSection postHash={post.hash} />
+        </div>
+      )}
+
+      {/* Quote Cast Modal */}
+      {showQuoteCast && did && (
+        <div className="quote-cast-modal-overlay" onClick={() => setShowQuoteCast(false)}>
+          <div className="quote-cast-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="quote-cast-header">
+              <h3>Quote Cast</h3>
+              <button
+                className="quote-cast-close"
+                onClick={() => {
+                  setShowQuoteCast(false);
+                  setQuoteText('');
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <div className="quote-cast-original">
+              <div className="quote-cast-original-header">
+                <span>@{post.username || post.did || post.fid || 'unknown'}</span>
+              </div>
+              <div className="quote-cast-original-text">{post.text}</div>
+            </div>
+            <textarea
+              className="quote-cast-textarea"
+              placeholder="Add your thoughts..."
+              rows={4}
+              maxLength={1000}
+              value={quoteText}
+              onChange={(e) => setQuoteText(e.target.value)}
+            />
+            <div className="quote-cast-actions">
+              <button
+                className="quote-cast-cancel"
+                onClick={() => {
+                  setShowQuoteCast(false);
+                  setQuoteText('');
+                }}
+                disabled={isQuoting}
+              >
+                Cancel
+              </button>
+              <button
+                className="quote-cast-submit"
+                onClick={() => {
+                  const text = quoteText.trim();
+                  if (text) {
+                    handleQuoteCast(text);
+                  }
+                }}
+                disabled={isQuoting || !quoteText.trim()}
+              >
+                {isQuoting ? 'Posting...' : 'Quote Cast'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

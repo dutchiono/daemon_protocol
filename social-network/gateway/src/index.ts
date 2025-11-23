@@ -258,13 +258,37 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
   protectedRoutes.post('/api/v1/reactions', async (req, res) => {
     try {
       const { did, targetHash, type } = req.body;
-      if (!did) {
-        return res.status(400).json({ error: 'did is required' });
+
+      // Validate did
+      if (!did || typeof did !== 'string' || did.trim() === '') {
+        return res.status(400).json({ error: 'did is required and must be a non-empty string' });
       }
+
+      // Validate targetHash
+      if (!targetHash || typeof targetHash !== 'string' || targetHash.trim() === '') {
+        return res.status(400).json({ error: 'targetHash is required and must be a non-empty string' });
+      }
+
+      // Validate type
+      if (!type || typeof type !== 'string') {
+        return res.status(400).json({ error: 'type is required and must be a string' });
+      }
+
+      const validTypes = ['like', 'repost', 'quote'];
+      if (!validTypes.includes(type)) {
+        return res.status(400).json({
+          error: `type must be one of: ${validTypes.join(', ')}. Received: ${type}`
+        });
+      }
+
+      console.log(`[Reactions] Creating reaction: did=${did}, targetHash=${targetHash}, type=${type}`);
       const result = await gatewayService.createReaction(did, targetHash, type);
       res.json(result);
     } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+      console.error('[Reactions] Error creating reaction:', error);
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Unknown error occurred while creating reaction'
+      });
     }
   });
 

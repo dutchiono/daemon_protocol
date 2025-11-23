@@ -22,11 +22,14 @@
     "build:client": "npm run build --workspace=daemon-client && npm run deploy:client",
     "deploy:client": "sudo cp -r daemon-client/dist/* /var/www/daemon-client/ && sudo systemctl reload nginx",
     "start:node": "cd daemon-node && npm start all",
-    "start:client": "cd daemon-client && npm run electron:dev"
+    "start:client": "cd daemon-client && npm run electron:dev",
+    "check": "tsx scripts/check-status.ts",
+    "status": "tsx scripts/check-status.ts"
   },
   "devDependencies": {
     "vitest": "^1.1.0",
     "@vitest/coverage-v8": "^1.1.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "tsx": "^4.7.0"
   }
 }

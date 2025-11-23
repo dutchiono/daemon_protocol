@@ -96,21 +96,54 @@ export async function updateProfile(
 }
 
 export async function likePost(did: string, targetHash: string) {
-  const response = await axios.post(`${API_URL}/api/v1/reactions`, {
-    did,
-    targetHash,
-    type: 'like'
-  });
-  return response.data;
+  try {
+    if (!did || !targetHash) {
+      throw new Error('DID and target hash are required');
+    }
+    const response = await axios.post(`${API_URL}/api/v1/reactions`, {
+      did,
+      targetHash,
+      type: 'like'
+    });
+    return response.data;
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.error || error.message || 'Failed to like post';
+    throw new Error(errorMessage);
+  }
 }
 
 export async function repostPost(did: string, targetHash: string) {
-  const response = await axios.post(`${API_URL}/api/v1/reactions`, {
-    did,
-    targetHash,
-    type: 'repost'
-  });
-  return response.data;
+  try {
+    if (!did || !targetHash) {
+      throw new Error('DID and target hash are required');
+    }
+    const response = await axios.post(`${API_URL}/api/v1/reactions`, {
+      did,
+      targetHash,
+      type: 'repost'
+    });
+    return response.data;
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.error || error.message || 'Failed to repost';
+    throw new Error(errorMessage);
+  }
+}
+
+export async function quotePost(did: string, targetHash: string) {
+  try {
+    if (!did || !targetHash) {
+      throw new Error('DID and target hash are required');
+    }
+    const response = await axios.post(`${API_URL}/api/v1/reactions`, {
+      did,
+      targetHash,
+      type: 'quote'
+    });
+    return response.data;
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.error || error.message || 'Failed to create quote cast';
+    throw new Error(errorMessage);
+  }
 }
 
 export async function votePost(did: string, postHash: string, voteType: 'UP' | 'DOWN') {

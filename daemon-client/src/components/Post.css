@@ -204,3 +204,197 @@
   margin-left: 1rem;
 }
 
+/* Repost dropdown menu */
+.repost-menu-container {
+  position: relative;
+}
+
+.repost-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 0.5rem;
+  background: #252525;
+  border: 1px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  min-width: 200px;
+  overflow: hidden;
+}
+
+.repost-option {
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background 0.2s;
+  gap: 0.25rem;
+}
+
+.repost-option:hover {
+  background: #333;
+}
+
+.repost-option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.repost-option span:first-child {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.repost-option-desc {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+/* Quote Cast Modal */
+.quote-cast-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.quote-cast-modal {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.quote-cast-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #333;
+}
+
+.quote-cast-header h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.2rem;
+}
+
+.quote-cast-close {
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.quote-cast-close:hover {
+  background: #333;
+  color: #fff;
+}
+
+.quote-cast-original {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #333;
+  background: #252525;
+  margin: 0;
+}
+
+.quote-cast-original-header {
+  font-size: 0.9rem;
+  color: #888;
+  margin-bottom: 0.5rem;
+}
+
+.quote-cast-original-text {
+  color: #ccc;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.quote-cast-textarea {
+  padding: 1rem 1.5rem;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-family: inherit;
+  font-size: 1rem;
+  resize: vertical;
+  min-height: 120px;
+  outline: none;
+}
+
+.quote-cast-textarea::placeholder {
+  color: #666;
+}
+
+.quote-cast-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #333;
+}
+
+.quote-cast-cancel,
+.quote-cast-submit {
+  padding: 0.5rem 1.5rem;
+  border: 1px solid #333;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.quote-cast-cancel {
+  background: transparent;
+  color: #888;
+}
+
+.quote-cast-cancel:hover {
+  background: #252525;
+  color: #fff;
+}
+
+.quote-cast-submit {
+  background: #10b981;
+  color: #fff;
+  border-color: #10b981;
+}
+
+.quote-cast-submit:hover:not(:disabled) {
+  background: #059669;
+  border-color: #059669;
+}
+
+.quote-cast-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+

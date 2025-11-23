@@ -29,11 +29,23 @@ export default function Notifications({ fid }: NotificationsProps) {
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
   // Fetch real notifications from API
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: ['notifications', did],
-    queryFn: () => getNotifications(did!),
+    queryFn: async () => {
+      if (!did) {
+        throw new Error('Wallet not connected');
+      }
+      try {
+        return await getNotifications(did);
+      } catch (err: any) {
+        const errorMessage = err.response?.data?.error || err.message || 'Failed to load notifications';
+        throw new Error(errorMessage);
+      }
+    },
     enabled: !!did,
     refetchInterval: 30000, // Refetch every 30 seconds
+    retry: 2, // Retry twice on failure
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
   });
 
   const notifications: Notification[] = data?.notifications || [];
@@ -108,38 +120,56 @@ export default function Notifications({ fid }: NotificationsProps) {
       </div>
 
       <div className="notifications-list">
-        {isLoading ? (
-          <div className="notifications-empty">Loading notifications...</div>
+        {isLoading && !isRefetching ? (
+          <div className="notifications-empty">
+            <div className="notifications-loading">Loading notifications...</div>
+          </div>
         ) : error ? (
-          <div className="notifications-empty">Error loading notifications</div>
+          <div className="notifications-error">
+            <div className="notifications-error-message">
+              {error instanceof Error ? error.message : 'Failed to load notifications'}
+            </div>
+            <button
+              className="notifications-retry-button"
+              onClick={() => refetch()}
+              disabled={isRefetching}
+            >
+              {isRefetching ? 'Retrying...' : 'Retry'}
+            </button>
+          </div>
         ) : filteredNotifications.length === 0 ? (
           <div className="notifications-empty">
             {filter === 'unread' ? 'No unread notifications' : 'No notifications yet'}
           </div>
         ) : (
-          filteredNotifications.map(notification => (
-            <div
-              key={notification.id}
-              className={`notification-item ${!notification.read ? 'unread' : ''}`}
-            >
-              <div className="notification-icon">
-                {getNotificationIcon(notification.type)}
-              </div>
-              <div className="notification-content">
-                <div className="notification-text">
-                  {getNotificationText(notification)}
+          <>
+            {isRefetching && (
+              <div className="notifications-refreshing">Refreshing...</div>
+            )}
+            {filteredNotifications.map(notification => (
+              <div
+                key={notification.id}
+                className={`notification-item ${!notification.read ? 'unread' : ''}`}
+              >
+                <div className="notification-icon">
+                  {getNotificationIcon(notification.type)}
                 </div>
-                {notification.post && (
-                  <div className="notification-post">
-                    {notification.post.text}
+                <div className="notification-content">
+                  <div className="notification-text">
+                    {getNotificationText(notification)}
                   </div>
-                )}
-                <div className="notification-time">
-                  {formatTimestamp(notification.timestamp)}
+                  {notification.post && (
+                    <div className="notification-post">
+                      {notification.post.text}
+                    </div>
+                  )}
+                  <div className="notification-time">
+                    {formatTimestamp(notification.timestamp)}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+          </>
         )}
       </div>
     </div>
