@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "deploy": "sudo cp -r dist/* /var/www/daemon-client/ && sudo systemctl reload nginx",
     "preview": "vite preview",
     "electron": "electron .",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5174 && electron .\"",

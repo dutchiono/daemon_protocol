@@ -19,7 +19,8 @@
     "build": "npm run build --workspaces",
     "build:pds": "npm run build --workspace=social-network/pds",
     "build:gateway": "npm run build --workspace=social-network/gateway",
-    "build:client": "npm run build --workspace=daemon-client",
+    "build:client": "npm run build --workspace=daemon-client && npm run deploy:client",
+    "deploy:client": "sudo cp -r daemon-client/dist/* /var/www/daemon-client/ && sudo systemctl reload nginx",
     "start:node": "cd daemon-node && npm start all",
     "start:client": "cd daemon-client && npm run electron:dev"
   },
