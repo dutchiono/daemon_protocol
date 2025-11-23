@@ -5,26 +5,39 @@ echo "=========================="
 echo ""
 
 echo "1️⃣  Stopping Hub and freeing port 4001..."
-# Stop and delete PM2 process
+# Stop and delete PM2 process multiple times to be sure
 pm2 stop daemon-hub 2>/dev/null || true
 pm2 delete daemon-hub 2>/dev/null || true
-pm2 save 2>/dev/null || true
-
-# Kill any process using port 4001
-PIDS=$(lsof -ti:4001 2>/dev/null || true)
-if [ -n "$PIDS" ]; then
-  echo "   Killing processes on port 4001: $PIDS"
-  kill -9 $PIDS 2>/dev/null || true
-else
-  echo "   Port 4001 is free"
-fi
+pm2 stop all 2>/dev/null || true
+pm2 delete all 2>/dev/null || true
+pm2 save --force 2>/dev/null || true
 sleep 2
 
-# Verify port is free
+# Kill any process using port 4001 - try multiple times
+for i in 1 2 3; do
+  PIDS=$(lsof -ti:4001 2>/dev/null || true)
+  if [ -n "$PIDS" ]; then
+    echo "   Attempt $i: Killing processes on port 4001: $PIDS"
+    echo "$PIDS" | xargs kill -9 2>/dev/null || true
+    sleep 2
+  else
+    echo "   Port 4001 is free"
+    break
+  fi
+done
+
+# Final check and kill
 if lsof -ti:4001 >/dev/null 2>&1; then
-  echo "   ⚠️  Port 4001 still in use, force killing..."
+  echo "   ⚠️  Port 4001 still in use, final force kill..."
   lsof -ti:4001 | xargs kill -9 2>/dev/null || true
-  sleep 1
+  sleep 3
+fi
+
+# Verify port is actually free before proceeding
+if lsof -ti:4001 >/dev/null 2>&1; then
+  echo "   ❌ Port 4001 is STILL in use! Cannot proceed."
+  echo "   Run manually: lsof -i:4001"
+  exit 1
 fi
 echo ""
 
