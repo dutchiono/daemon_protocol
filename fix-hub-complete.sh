@@ -38,9 +38,15 @@ cd ~/daemon/social-network/hub
 
 # Clean everything
 rm -rf dist
+rm -rf node_modules
 rm -rf src/*.js 2>/dev/null || true
 rm -rf src/*.js.map 2>/dev/null || true
-echo "   Cleaned old builds"
+echo "   Cleaned old builds and node_modules"
+echo ""
+
+# Reinstall dependencies
+echo "   Installing dependencies..."
+npm install
 echo ""
 
 # Rebuild from TypeScript
