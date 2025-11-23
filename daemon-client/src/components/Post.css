@@ -10,6 +10,16 @@
   border-color: #444;
 }
 
+.post-container {
+  display: flex;
+  gap: 1rem;
+}
+
+.post-content-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+
 .post-header {
   display: flex;
   justify-content: space-between;
@@ -72,5 +82,27 @@
 
 .post-action.reposted {
   color: #17bf63;
+}
+
+.post-action:active {
+  transform: scale(0.98);
+}
+
+/* Improved spacing and visual hierarchy */
+.post-content {
+  margin-bottom: 1rem;
+}
+
+.post-content p {
+  margin: 0;
+}
+
+.post-actions {
+  margin-top: 0.75rem;
+}
+
+/* Dark theme vote colors */
+.post-vote .vote-count {
+  color: #ccc;
 }
 

@@ -73,14 +73,6 @@ export default function Sidebar() {
           <span className="nav-label">Channels</span>
         </button>
 
-        <button
-          className={`nav-item ${isActive('/compose') ? 'active' : ''}`}
-          onClick={() => navigate('/compose')}
-        >
-          <span className="nav-icon">✍️</span>
-          <span className="nav-label">Compose</span>
-        </button>
-
         {did && (
           <button
             className={`nav-item ${isActive(`/profile/${did}`) ? 'active' : ''}`}
@@ -92,6 +84,22 @@ export default function Sidebar() {
         )}
 
         <div className="nav-divider"></div>
+
+        <button
+          className={`nav-item ${isActive('/sdk') ? 'active' : ''}`}
+          onClick={() => navigate('/sdk')}
+        >
+          <span className="nav-icon">📦</span>
+          <span className="nav-label">SDK</span>
+        </button>
+
+        <button
+          className={`nav-item ${isActive('/launchpad') ? 'active' : ''}`}
+          onClick={() => navigate('/launchpad')}
+        >
+          <span className="nav-icon">🚀</span>
+          <span className="nav-label">Launchpad</span>
+        </button>
 
         <button
           className={`nav-item ${isActive('/about') ? 'active' : ''}`}

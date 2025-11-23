@@ -20,10 +20,16 @@ const BASE_URL = getBaseUrl();
 const API_URL = BASE_URL.replace(/\/api\/?$/, '');
 
 // Simplified client - no x402 for now (can add later)
-export async function getFeed(did?: string | null, type: string = 'algorithmic', limit: number = 50) {
+export async function getFeed(
+  did?: string | null,
+  type: string = 'algorithmic',
+  limit: number = 50,
+  cursor?: string
+) {
   try {
     const params: any = { type, limit };
     if (did) params.did = did;
+    if (cursor) params.cursor = cursor;
 
     const response = await axios.get(`${API_URL}/api/v1/feed`, {
       params,
@@ -103,6 +109,26 @@ export async function repostPost(did: string, targetHash: string) {
     did,
     targetHash,
     type: 'repost'
+  });
+  return response.data;
+}
+
+export async function votePost(did: string, postHash: string, voteType: 'UP' | 'DOWN') {
+  const response = await axios.post(`${API_URL}/api/v1/posts/${postHash}/vote`, {
+    did,
+    voteType
+  }, {
+    timeout: 10000
+  });
+  return response.data;
+}
+
+export async function voteComment(did: string, commentHash: string, voteType: 'UP' | 'DOWN') {
+  const response = await axios.post(`${API_URL}/api/v1/comments/${commentHash}/vote`, {
+    did,
+    voteType
+  }, {
+    timeout: 10000
   });
   return response.data;
 }

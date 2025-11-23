@@ -1,0 +1,208 @@
+.launchpad-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  color: #fff;
+}
+
+.launchpad-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.launchpad-header h1 {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  color: #fff;
+}
+
+.launchpad-subtitle {
+  font-size: 1.2rem;
+  color: #888;
+  margin: 0;
+}
+
+.launchpad-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  border-bottom: 2px solid #333;
+  padding-bottom: 0;
+}
+
+.launchpad-tab {
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: #888;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  margin-bottom: -2px;
+}
+
+.launchpad-tab:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.launchpad-tab.active {
+  color: #007bff;
+  border-bottom-color: #007bff;
+}
+
+.launchpad-content {
+  min-height: 500px;
+}
+
+.launchpad-section {
+  line-height: 1.8;
+}
+
+.launchpad-section h2 {
+  font-size: 2rem;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  color: #fff;
+}
+
+.launchpad-section h3 {
+  font-size: 1.5rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: #fff;
+}
+
+.launchpad-section p {
+  margin-bottom: 1rem;
+  color: #ccc;
+}
+
+.launchpad-section ul,
+.launchpad-section ol {
+  margin-bottom: 1.5rem;
+  padding-left: 2rem;
+  color: #ccc;
+}
+
+.launchpad-section li {
+  margin-bottom: 0.5rem;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.feature-card {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 123, 255, 0.2);
+}
+
+.feature-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.feature-card h4 {
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+  color: #fff;
+}
+
+.feature-card p {
+  color: #888;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.wallet-prompt,
+.wallet-required {
+  padding: 1.5rem;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+  text-align: center;
+  margin: 2rem 0;
+}
+
+.wallet-required {
+  background: rgba(255, 87, 34, 0.1);
+  border-color: rgba(255, 87, 34, 0.3);
+}
+
+.wallet-prompt p,
+.wallet-required p {
+  margin: 0.5rem 0;
+  color: #fff;
+}
+
+.deploy-info,
+.dashboard-info {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.launchpad-link {
+  text-align: center;
+  margin: 2rem 0;
+}
+
+.launchpad-button {
+  display: inline-block;
+  padding: 1rem 2rem;
+  background: #007bff;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.launchpad-button:hover {
+  background: #0056b3;
+}
+
+.launchpad-note {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: rgba(0, 123, 255, 0.1);
+  border-left: 4px solid #007bff;
+  border-radius: 4px;
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.launchpad-footer {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid #333;
+  text-align: center;
+  color: #888;
+}
+
+.launchpad-footer a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.launchpad-footer a:hover {
+  text-decoration: underline;
+}
+

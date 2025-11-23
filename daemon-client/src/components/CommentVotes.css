@@ -1,0 +1,88 @@
+.comment-votes {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+
+.comment-votes .vote-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  border-radius: 4px;
+}
+
+.comment-votes .vote-button:hover:not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.comment-votes .vote-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.comment-votes .vote-button.active {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.comment-votes .vote-icon {
+  width: 16px;
+  height: 16px;
+  color: #6b7280;
+  transition: all 0.2s;
+}
+
+.comment-votes .vote-icon.small {
+  width: 14px;
+  height: 14px;
+}
+
+.comment-votes .vote-button.upvote:hover:not(:disabled) .vote-icon {
+  color: #10b981;
+}
+
+.comment-votes .vote-button.downvote:hover:not(:disabled) .vote-icon {
+  color: #ef4444;
+}
+
+.comment-votes .vote-icon.voted {
+  fill: currentColor;
+}
+
+.comment-votes .vote-button.upvote.active .vote-icon {
+  color: #10b981;
+  fill: #10b981;
+}
+
+.comment-votes .vote-button.downvote.active .vote-icon {
+  color: #ef4444;
+  fill: #ef4444;
+}
+
+.comment-votes .vote-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ccc;
+  min-width: 20px;
+  text-align: center;
+  padding: 0 4px;
+}
+
+/* Dark theme adjustments */
+.comment-votes .vote-button:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.comment-votes .vote-button.active {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.comment-votes .vote-count.small {
+  font-size: 11px;
+}
+

@@ -6,6 +6,7 @@ interface PostComposerProps {
   did: number | null;
   onPostCreated: () => void;
   onCancel?: () => void;
+  parentHash?: string; // For replies/comments
 }
 
 export default function PostComposer({ did, onPostCreated, onCancel }: PostComposerProps) {
@@ -26,8 +27,9 @@ export default function PostComposer({ did, onPostCreated, onCancel }: PostCompo
       return;
     }
 
-    if (text.length > 280) {
-      setError('Post must be 280 characters or less');
+    // Removed 280 character limit - posts can be longer now
+    if (text.length > 10000) {
+      setError('Post must be 10,000 characters or less');
       return;
     }
 
@@ -39,7 +41,7 @@ export default function PostComposer({ did, onPostCreated, onCancel }: PostCompo
       if (!didString) {
         throw new Error('Wallet not connected');
       }
-      await createPost(didString, text);
+      await createPost(didString, text, parentHash);
       setText('');
       onPostCreated();
     } catch (err) {
@@ -51,18 +53,18 @@ export default function PostComposer({ did, onPostCreated, onCancel }: PostCompo
 
   return (
     <div className="post-composer">
-      <h2>Create Post</h2>
+      {!parentHash && <h2>Create Post</h2>}
       <form onSubmit={handleSubmit}>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="What's on your mind?"
-          maxLength={280}
-          rows={4}
+          placeholder={parentHash ? "Write a reply..." : "What's on your mind?"}
+          maxLength={10000}
+          rows={parentHash ? 4 : 8}
           className="composer-textarea"
         />
         <div className="composer-footer">
-          <span className="char-count">{text.length}/280</span>
+          <span className="char-count">{text.length}/10,000</span>
           {error && <span className="error">{error}</span>}
           <div className="composer-actions">
             {onCancel && (

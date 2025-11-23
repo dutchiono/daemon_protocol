@@ -8,6 +8,12 @@
 .post-composer h2 {
   margin-bottom: 1.5rem;
   color: #fff;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.post-composer {
+  max-width: 100%;
 }
 
 .composer-textarea {
@@ -21,6 +27,14 @@
   color: #fff;
   resize: vertical;
   margin-bottom: 1rem;
+  min-height: 120px;
+  line-height: 1.6;
+}
+
+.composer-textarea:focus {
+  outline: none;
+  border-color: #007bff;
+  background: #0f0f0f;
 }
 
 .composer-textarea:focus {

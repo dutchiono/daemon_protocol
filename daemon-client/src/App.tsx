@@ -10,6 +10,8 @@ import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import Compose from './pages/Compose';
 import About from './pages/About';
+import SDK from './pages/SDK';
+import Launchpad from './pages/Launchpad';
 import './App.css';
 
 const queryClient = new QueryClient();
@@ -28,6 +30,8 @@ function App() {
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile/:fid" element={<Profile />} />
               <Route path="/compose" element={<Compose />} />
+              <Route path="/sdk" element={<SDK />} />
+              <Route path="/launchpad" element={<Launchpad />} />
               <Route path="/about" element={<About />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

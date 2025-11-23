@@ -155,7 +155,7 @@ export class GatewayService {
 
     const scored = await Promise.all(posts.map(async post => {
       const age = now - post.timestamp;
-      
+
       // Get vote counts if not already enriched
       const voteCount = post.voteCount ?? 0;
       const upvoteCount = post.upvoteCount ?? 0;
@@ -171,7 +171,7 @@ export class GatewayService {
         // Score = (upvotes - downvotes) / time^1.5 (roughly)
         const timeWeight = Math.pow(age + 2, 1.5); // Add 2 to prevent division by 0
         score = voteCount / timeWeight;
-        
+
         // Boost recent posts slightly
         if (age < 3600) score *= 1.2; // Boost posts < 1 hour old
         if (age < 300) score *= 1.5; // Boost posts < 5 minutes old

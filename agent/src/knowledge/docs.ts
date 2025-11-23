@@ -20,16 +20,16 @@ export function loadDocumentation(): string {
 
   // List of documentation files to include (in order of importance)
   const docFiles = [
-    'README.md',
-    'AGENT.md',
-    'SDK.md',
-    'LAUNCHPAD.md',
-    'BUILDER_REWARDS.md',
-    'HOOK.md',
-    'DEPLOYMENT.md',
-    'TESTING.md',
-    'SALT_GENERATION_LESSONS.md',
-    'TOKEN_NAMING.md',
+    'README.mdx',
+    'AGENT.mdx',
+    'SDK.mdx',
+    'LAUNCHPAD.mdx',
+    'BUILDER_REWARDS.mdx',
+    'HOOK.mdx',
+    'DEPLOYMENT.mdx',
+    'TESTING.mdx',
+    'SALT_GENERATION_LESSONS.mdx',
+    'TOKEN_NAMING.mdx',
   ];
 
   for (const file of docFiles) {

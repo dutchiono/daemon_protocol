@@ -1,0 +1,49 @@
+# SDK & Launchpad Navigation Integration
+
+## Summary
+
+Added SDK and Launchpad pages to daemon-client and converted all documentation files from `.md` to `.mdx` format.
+
+**Date:** January 2025 | **Status:** ✅ Complete
+
+---
+
+## Changes
+
+### New Pages
+- **SDK Page** (`/sdk`) - Tabbed interface with Overview, Installation, Usage, and API Reference
+- **Launchpad Page** (`/launchpad`) - Tabbed interface with Overview, Deploy Token, and Dashboard sections
+
+### Navigation
+- Added **SDK** (📦) and **Launchpad** (🚀) items to sidebar navigation
+- Both appear before "About" menu item
+- Active state highlighting implemented
+- Routes added to `App.tsx`
+
+### Documentation
+- Converted all `.md` files to `.mdx` (34 files total)
+- Updated references in `agent/src/knowledge/docs.ts` and `docs/README.mdx`
+
+---
+
+## Files Created
+
+**Pages:**
+- `daemon-client/src/pages/SDK.tsx` + `SDK.css`
+- `daemon-client/src/pages/Launchpad.tsx` + `Launchpad.css`
+
+**Modified:**
+- `daemon-client/src/components/Sidebar.tsx`
+- `daemon-client/src/App.tsx`
+- `agent/src/knowledge/docs.ts`
+- `docs/README.mdx`
+
+---
+
+## Notes for Orchestrator
+
+- ✅ All changes backward compatible
+- ✅ No API changes required
+- ✅ MDX conversion transparent to users
+- ✅ Navigation enhances UX
+- ✅ Ready for content expansion

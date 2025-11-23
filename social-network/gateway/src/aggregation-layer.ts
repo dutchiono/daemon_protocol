@@ -179,7 +179,7 @@ export class AggregationLayer {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[AggregationLayer] createPost - PDS error response:', response.status, errorText);
-      
+
       // If user not found, try to create PDS account automatically
       if (response.status === 400 || response.status === 404) {
         try {
@@ -192,7 +192,7 @@ export class AggregationLayer {
               [did]
             );
             const walletAddress = userResult.rows[0]?.address;
-            
+
             // Extract handle from profiles table
             const profileResult = await this.db.query(
               `SELECT username FROM profiles WHERE did = $1`,
@@ -215,7 +215,7 @@ export class AggregationLayer {
               const retryResult = await retryResponse.json();
               // Continue with normal flow
               const finalResult = retryResult;
-              
+
               // Submit to hubs
               if (this.hubEndpoints.length > 0) {
                 for (const hubEndpoint of this.hubEndpoints) {
@@ -857,7 +857,7 @@ export class AggregationLayer {
     }
 
     const userPds = this.pdsEndpoints[0];
-    
+
     // First, check if account already exists
     try {
       const checkResponse = await fetch(`${userPds}/xrpc/com.atproto.repo.getProfile?did=${encodeURIComponent(did)}`);
@@ -873,7 +873,7 @@ export class AggregationLayer {
     // Account doesn't exist, create it
     try {
       console.log('[AggregationLayer] ensurePDSAccount - Creating PDS account for:', did, 'wallet:', walletAddress);
-      
+
       const createBody: any = {};
       if (walletAddress) {
         createBody.walletAddress = walletAddress;

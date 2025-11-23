@@ -1,45 +1,48 @@
-import { useQuery } from '@tanstack/react-query';
-import Post from './Post';
-import { getFeed } from '../api/client';
-import { fidToDid } from '../utils/did';
+import { useState } from 'react';
+import PostFeed from './PostFeed';
 import './Feed.css';
 
 interface FeedProps {
   did: number | null;
 }
 
+type FeedType = 'hot' | 'top' | 'new' | 'algorithmic';
+
 export default function Feed({ did }: FeedProps) {
-  const didString = fidToDid(did);
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['feed', did],
-    queryFn: () => getFeed(didString, 'algorithmic', 50),
-    enabled: did !== null,
-    refetchInterval: 30000
-  });
-
-  if (isLoading) {
-    return <div className="feed-loading">Loading feed...</div>;
-  }
-
-  if (error) {
-    return <div className="feed-error">Error loading feed: {error.message}</div>;
-  }
-
-  if (!data || data.posts.length === 0) {
-    return <div className="feed-empty">No posts yet. Be the first to post!</div>;
-  }
+  const [feedType, setFeedType] = useState<FeedType>('hot');
 
   return (
     <div className="feed">
       <div className="feed-header">
         <h2>Feed</h2>
-        <button onClick={() => refetch()} className="refresh-btn">Refresh</button>
+        <div className="feed-type-selector">
+          <button
+            className={`feed-type-btn ${feedType === 'hot' ? 'active' : ''}`}
+            onClick={() => setFeedType('hot')}
+          >
+            Hot
+          </button>
+          <button
+            className={`feed-type-btn ${feedType === 'top' ? 'active' : ''}`}
+            onClick={() => setFeedType('top')}
+          >
+            Top
+          </button>
+          <button
+            className={`feed-type-btn ${feedType === 'new' ? 'active' : ''}`}
+            onClick={() => setFeedType('new')}
+          >
+            New
+          </button>
+          <button
+            className={`feed-type-btn ${feedType === 'algorithmic' ? 'active' : ''}`}
+            onClick={() => setFeedType('algorithmic')}
+          >
+            For You
+          </button>
+        </div>
       </div>
-      <div className="feed-posts">
-        {data.posts.map((post: any) => (
-          <Post key={post.hash} post={post} />
-        ))}
-      </div>
+      <PostFeed did={did} feedType={feedType} />
     </div>
   );
 }
