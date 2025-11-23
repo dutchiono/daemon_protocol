@@ -138,7 +138,12 @@ export class AggregationLayer {
     }
 
     // Create post on PDS
-    const response = await fetch(`${userPds}/xrpc/com.atproto.repo.createRecord`, {
+    // If userPds is relative (starts with /), we need to construct full URL
+    const pdsEndpoint = userPds.startsWith('/') 
+      ? `http://localhost:4003${userPds}` // Gateway is on 4003, Nginx proxies /xrpc/ to PDS
+      : userPds;
+    
+    const response = await fetch(`${pdsEndpoint}/xrpc/com.atproto.repo.createRecord`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -155,7 +160,15 @@ export class AggregationLayer {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to create post');
+      const errorText = await response.text();
+      let errorMessage = 'Failed to create post on PDS';
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorMessage;
+      } catch {
+        errorMessage = errorText || errorMessage;
+      }
+      throw new Error(errorMessage);
     }
 
     const result = await response.json();
@@ -537,9 +550,21 @@ export class AggregationLayer {
   }
 
   private async getUserPDS(fid: number): Promise<string | null> {
-    // In production, would query user's PDS assignment
-    // For now, return first PDS
-    return this.pdsEndpoints[0] || null;
+    // If pdsEndpoints is empty, return null
+    if (!this.pdsEndpoints || this.pdsEndpoints.length === 0) {
+      return null;
+    }
+    
+    // In production (when pdsEndpoints contains localhost), use relative URL via Nginx
+    const pdsUrl = this.pdsEndpoints[0];
+    if (pdsUrl.includes('localhost') || pdsUrl.includes('127.0.0.1')) {
+      // Gateway is behind Nginx, use relative URL
+      // Nginx will proxy /xrpc/ to PDS
+      return '/xrpc';
+    }
+    
+    // Otherwise use the configured PDS endpoint
+    return pdsUrl;
   }
 
   private deduplicatePosts(posts: Post[]): Post[] {
