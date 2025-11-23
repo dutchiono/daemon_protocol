@@ -769,8 +769,52 @@ export class AggregationLayer {
     }
     async createReaction(did: string, targetHash: string, type: 'like' | 'repost' | 'quote'): Promise<Reaction> {
         // First, verify that the target message exists
+        // Check both messages table (for Hub messages) and PDS records (for AT Protocol posts)
+        let messageExists = false;
+
+        // Check messages table first (for Hub messages with keccak256 hashes)
         const messageCheck = await this.db.query(`SELECT hash FROM messages WHERE hash = $1`, [targetHash]);
-        if (messageCheck.rows.length === 0) {
+        if (messageCheck.rows.length > 0) {
+            messageExists = true;
+        } else {
+            // If not in messages table, check if it's an AT Protocol URI and verify in PDS
+            if (targetHash.startsWith('at://')) {
+                try {
+                    // Extract DID from AT Protocol URI
+                    const uriMatch = targetHash.match(/^at:\/\/([^/]+)\//);
+                    if (uriMatch) {
+                        const targetDid = uriMatch[1];
+                        const userPds = await this.getUserPDS(targetDid);
+                        if (userPds) {
+                            // Check if record exists in PDS
+                            const response = await fetch(`${userPds}/xrpc/com.atproto.repo.getRecord?repo=${targetDid}&collection=app.daemon.feed.post&rkey=${targetHash.split('/').pop()}`, {
+                                method: 'GET',
+                                headers: { 'Content-Type': 'application/json' }
+                            });
+                            if (response.ok) {
+                                messageExists = true;
+                            } else {
+                                // Try listing records to find it
+                                const listResponse = await fetch(`${userPds}/xrpc/com.atproto.repo.listRecords?repo=${targetDid}&collection=app.daemon.feed.post&limit=1000`, {
+                                    method: 'GET',
+                                    headers: { 'Content-Type': 'application/json' }
+                                });
+                                if (listResponse.ok) {
+                                    const listData: any = await listResponse.json();
+                                    if (listData.records && listData.records.some((r: any) => r.uri === targetHash)) {
+                                        messageExists = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`[AggregationLayer] Could not verify AT Protocol URI in PDS: ${error}`);
+                }
+            }
+        }
+
+        if (!messageExists) {
             throw new Error(`Target message with hash ${targetHash} does not exist`);
         }
 
