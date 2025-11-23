@@ -156,11 +156,17 @@ if [ ! -f dist/index.js ]; then
     exit 1
   fi
 fi
-# Verify Gateway routes use :did not :fid
-if grep -q "/api/v1/profile/:fid" dist/index.js; then
+# Verify Gateway routes use :did not :fid (check for actual route definitions, not console.log)
+if grep -q "app\.get('/api/v1/profile/:fid" dist/index.js || grep -q "app\.put('/api/v1/profile/:fid" dist/index.js; then
   echo "   ❌ Gateway still using old :fid routes - forcing rebuild..."
-  rm -rf dist
+  rm -rf dist .tsbuildinfo
   npm run build
+  # Verify again after rebuild
+  if grep -q "app\.get('/api/v1/profile/:fid" dist/index.js || grep -q "app\.put('/api/v1/profile/:fid" dist/index.js; then
+    echo "   ❌ Gateway STILL has :fid routes after rebuild - checking source..."
+    grep -n "profile/:fid" src/index.ts || echo "   Source looks correct, but compiled output is wrong"
+    exit 1
+  fi
 fi
 cd ../..
 echo "   ✅ Services built and verified"

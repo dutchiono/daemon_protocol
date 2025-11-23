@@ -9,7 +9,7 @@ interface PostComposerProps {
   parentHash?: string; // For replies/comments
 }
 
-export default function PostComposer({ did, onPostCreated, onCancel }: PostComposerProps) {
+export default function PostComposer({ did, onPostCreated, onCancel, parentHash }: PostComposerProps) {
   const [text, setText] = useState('');
   const [isPosting, setIsPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);

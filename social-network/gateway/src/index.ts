@@ -309,8 +309,8 @@ const config: Config = {
       console.log(`Gateway ID: ${gatewayService.getGatewayId()}`);
       console.log('Available routes:');
       console.log('  GET  /health');
-      console.log('  GET  /api/v1/profile/:fid');
-      console.log('  PUT  /api/v1/profile/:fid');
+      console.log('  GET  /api/v1/profile/:did');
+      console.log('  PUT  /api/v1/profile/:did');
       console.log('  GET  /api/v1/notifications/count');
       console.log('  GET  /api/v1/feed');
       console.log('  POST /api/v1/posts');
