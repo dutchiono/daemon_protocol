@@ -122,11 +122,20 @@ cd social-network/gateway
 # CRITICAL: Remove any .d.ts files in src before building
 find src -name "*.d.ts" -type f -delete 2>/dev/null || true
 find src -name "*.d.ts.map" -type f -delete 2>/dev/null || true
-# Verify types.ts has Vote export BEFORE building
-if ! grep -q "export interface Vote" src/types.ts; then
-  echo "   ❌ Vote interface missing from types.ts - this should not happen!"
-  echo "   Checking types.ts content:"
-  head -50 src/types.ts | tail -20
+# Verify types.ts has Vote export BEFORE building (use more flexible grep)
+if ! grep -E "(export.*Vote|interface Vote)" src/types.ts > /dev/null 2>&1; then
+  echo "   ❌ Vote interface missing from types.ts - checking file..."
+  echo "   File exists: $(test -f src/types.ts && echo 'yes' || echo 'no')"
+  echo "   File size: $(wc -l < src/types.ts) lines"
+  echo "   Last 10 lines of types.ts:"
+  tail -10 src/types.ts
+  echo "   Searching for 'Vote' in file:"
+  grep -i vote src/types.ts || echo "   No 'Vote' found!"
+  exit 1
+fi
+# Also verify Post has voteCount
+if ! grep -q "voteCount" src/types.ts; then
+  echo "   ❌ voteCount property missing from Post interface"
   exit 1
 fi
 # Now build
