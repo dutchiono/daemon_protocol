@@ -96,8 +96,17 @@ async function initializeHub(config: Config) {
   const syncEngine = new SyncEngine(node, db, config);
   const hubService = new HubService(node, db, messageValidator, syncEngine, config);
 
-  // Start hub
+  // Start hub (this will start the libp2p node)
   await hubService.start();
+
+  // Log node addresses for bootstrap configuration (after node is started)
+  const addresses = node.getMultiaddrs();
+  if (addresses.length > 0) {
+    console.log('📡 Node addresses (use these as BOOTSTRAP_NODES for other nodes):');
+    addresses.forEach((addr) => {
+      console.log(`   ${addr.toString()}`);
+    });
+  }
 
   // Setup API endpoints
   setupAPI(app, hubService);
@@ -174,8 +183,10 @@ const config: Config = {
   databaseUrl: process.env.DATABASE_URL || '',
   nodeId: process.env.NODE_ID || '',
   peers: process.env.PEERS ? process.env.PEERS.split(',') : [],
+  bootstrapNodes: process.env.BOOTSTRAP_NODES ? process.env.BOOTSTRAP_NODES.split(',') : [],
   rpcUrl: process.env.RPC_URL || '',
   chainId: parseInt(process.env.CHAIN_ID || '84532'), // Base Sepolia default
+  enableDHT: process.env.ENABLE_DHT !== 'false',
 };
 
 // Validate required config
