@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 /**
- * Modern diagnostic script to check what we're working on
- * Shows system status, recent activity, API health, and current state
+ * Modern diagnostic script to check replies, recasts, and quote casts
+ * Verifies that all interaction features are working correctly
  */
 
 import { execSync } from 'child_process';
@@ -35,6 +35,22 @@ interface DatabaseStats {
   totalReactions: number;
   totalUsers: number;
   recentPosts: number;
+}
+
+interface ReactionStats {
+  likes: number;
+  reposts: number;
+  quotes: number;
+  recentLikes: number;
+  recentReposts: number;
+  recentQuotes: number;
+}
+
+interface PostInfo {
+  hash: string;
+  did: string;
+  text: string;
+  timestamp: number;
 }
 
 interface GitInfo {
@@ -177,6 +193,143 @@ function checkDatabase(): DatabaseStats | null {
   }
 }
 
+function checkReactions(): ReactionStats | null {
+  try {
+    const dbUser = process.env.DB_USER || 'daemon';
+    const dbName = process.env.DB_NAME || 'daemon';
+    const dbHost = process.env.DB_HOST || 'localhost';
+    const dbPort = process.env.DB_PORT || '5432';
+    const psqlCmd = `psql -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -tAc`;
+
+    try {
+      const likes = execSync(
+        `${psqlCmd} "SELECT COUNT(*) FROM reactions WHERE reaction_type = 'like' AND active = true;"`,
+        { encoding: 'utf-8', stdio: 'pipe', env: { ...process.env, PGPASSWORD: process.env.DB_PASSWORD || '' } }
+      ).trim();
+
+      const reposts = execSync(
+        `${psqlCmd} "SELECT COUNT(*) FROM reactions WHERE reaction_type = 'repost' AND active = true;"`,
+        { encoding: 'utf-8', stdio: 'pipe', env: { ...process.env, PGPASSWORD: process.env.DB_PASSWORD || '' } }
+      ).trim();
+
+      const quotes = execSync(
+        `${psqlCmd} "SELECT COUNT(*) FROM reactions WHERE reaction_type = 'quote' AND active = true;"`,
+        { encoding: 'utf-8', stdio: 'pipe', env: { ...process.env, PGPASSWORD: process.env.DB_PASSWORD || '' } }
+      ).trim();
+
+      const recentLikes = execSync(
+        `${psqlCmd} "SELECT COUNT(*) FROM reactions WHERE reaction_type = 'like' AND active = true AND timestamp > EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours');"`,
+        { encoding: 'utf-8', stdio: 'pipe', env: { ...process.env, PGPASSWORD: process.env.DB_PASSWORD || '' } }
+      ).trim();
+
+      const recentReposts = execSync(
+        `${psqlCmd} "SELECT COUNT(*) FROM reactions WHERE reaction_type = 'repost' AND active = true AND timestamp > EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours');"`,
+        { encoding: 'utf-8', stdio: 'pipe', env: { ...process.env, PGPASSWORD: process.env.DB_PASSWORD || '' } }
+      ).trim();
+
+      const recentQuotes = execSync(
+        `${psqlCmd} "SELECT COUNT(*) FROM reactions WHERE reaction_type = 'quote' AND active = true AND timestamp > EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours');"`,
+        { encoding: 'utf-8', stdio: 'pipe', env: { ...process.env, PGPASSWORD: process.env.DB_PASSWORD || '' } }
+      ).trim();
+
+      return {
+        likes: parseInt(likes) || 0,
+        reposts: parseInt(reposts) || 0,
+        quotes: parseInt(quotes) || 0,
+        recentLikes: parseInt(recentLikes) || 0,
+        recentReposts: parseInt(recentReposts) || 0,
+        recentQuotes: parseInt(recentQuotes) || 0,
+      };
+    } catch {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+function getRecentReplies(limit: number = 5): PostInfo[] {
+  try {
+    const dbUser = process.env.DB_USER || 'daemon';
+    const dbName = process.env.DB_NAME || 'daemon';
+    const dbHost = process.env.DB_HOST || 'localhost';
+    const dbPort = process.env.DB_PORT || '5432';
+    const psqlCmd = `psql -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -tAc`;
+
+    const result = execSync(
+      `${psqlCmd} "SELECT hash, did, LEFT(text, 100) as text, timestamp FROM messages WHERE parent_hash IS NOT NULL ORDER BY timestamp DESC LIMIT ${limit};"`,
+      { encoding: 'utf-8', stdio: 'pipe', env: { ...process.env, PGPASSWORD: process.env.DB_PASSWORD || '' } }
+    );
+
+    const lines = result.trim().split('\n').filter(l => l.trim());
+    return lines.map(line => {
+      const parts = line.split('|').map(p => p.trim());
+      return {
+        hash: parts[0] || '',
+        did: parts[1] || '',
+        text: parts[2] || '',
+        timestamp: parseInt(parts[3]) || 0,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+function getRecentReposts(limit: number = 5): any[] {
+  try {
+    const dbUser = process.env.DB_USER || 'daemon';
+    const dbName = process.env.DB_NAME || 'daemon';
+    const dbHost = process.env.DB_HOST || 'localhost';
+    const dbPort = process.env.DB_PORT || '5432';
+    const psqlCmd = `psql -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -tAc`;
+
+    const result = execSync(
+      `${psqlCmd} "SELECT did, target_hash, timestamp FROM reactions WHERE reaction_type = 'repost' AND active = true ORDER BY timestamp DESC LIMIT ${limit};"`,
+      { encoding: 'utf-8', stdio: 'pipe', env: { ...process.env, PGPASSWORD: process.env.DB_PASSWORD || '' } }
+    );
+
+    const lines = result.trim().split('\n').filter(l => l.trim());
+    return lines.map(line => {
+      const parts = line.split('|').map(p => p.trim());
+      return {
+        did: parts[0] || '',
+        targetHash: parts[1] || '',
+        timestamp: parseInt(parts[2]) || 0,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+function getRecentQuotes(limit: number = 5): any[] {
+  try {
+    const dbUser = process.env.DB_USER || 'daemon';
+    const dbName = process.env.DB_NAME || 'daemon';
+    const dbHost = process.env.DB_HOST || 'localhost';
+    const dbPort = process.env.DB_PORT || '5432';
+    const psqlCmd = `psql -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -tAc`;
+
+    const result = execSync(
+      `${psqlCmd} "SELECT did, target_hash, timestamp FROM reactions WHERE reaction_type = 'quote' AND active = true ORDER BY timestamp DESC LIMIT ${limit};"`,
+      { encoding: 'utf-8', stdio: 'pipe', env: { ...process.env, PGPASSWORD: process.env.DB_PASSWORD || '' } }
+    );
+
+    const lines = result.trim().split('\n').filter(l => l.trim());
+    return lines.map(line => {
+      const parts = line.split('|').map(p => p.trim());
+      return {
+        did: parts[0] || '',
+        targetHash: parts[1] || '',
+        timestamp: parseInt(parts[2]) || 0,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 function showDatabaseStats(): void {
   logSection('📊 Database Statistics');
 
@@ -190,6 +343,86 @@ function showDatabaseStats(): void {
   } else {
     log('  ⚠️  Could not connect to database', colors.yellow);
     log('     Make sure PostgreSQL is running and DATABASE_URL is set', colors.dim);
+  }
+}
+
+function showReactionsDiagnostics(): void {
+  logSection('💬 Replies, Recasts & Quote Casts');
+
+  const stats = checkDatabase();
+  const reactions = checkReactions();
+
+  // Replies
+  log('  📝 Replies:', colors.bright);
+  if (stats) {
+    log(`    Total: ${stats.totalReplies}`, colors.cyan);
+    const recentReplies = getRecentReplies(3);
+    if (recentReplies.length > 0) {
+      log(`    Recent replies:`, colors.dim);
+      recentReplies.forEach((reply, i) => {
+        log(`      ${i + 1}. ${reply.did}: ${reply.text.substring(0, 50)}...`, colors.dim);
+      });
+    } else {
+      log(`    ⚠️  No recent replies found`, colors.yellow);
+    }
+  } else {
+    log(`    ⚠️  Could not check replies`, colors.yellow);
+  }
+
+  console.log('');
+
+  // Recasts/Reposts
+  log('  ↻ Recasts/Reposts:', colors.bright);
+  if (reactions) {
+    log(`    Total: ${reactions.reposts}`, colors.cyan);
+    log(`    Last 24h: ${reactions.recentReposts}`, colors.cyan);
+    const recentReposts = getRecentReposts(3);
+    if (recentReposts.length > 0) {
+      log(`    Recent reposts:`, colors.dim);
+      recentReposts.forEach((repost, i) => {
+        log(`      ${i + 1}. ${repost.did} reposted ${repost.targetHash.substring(0, 20)}...`, colors.dim);
+      });
+    } else {
+      log(`    ⚠️  No recent reposts found`, colors.yellow);
+    }
+  } else {
+    log(`    ⚠️  Could not check reposts`, colors.yellow);
+  }
+
+  console.log('');
+
+  // Quote Casts
+  log('  💬 Quote Casts:', colors.bright);
+  if (reactions) {
+    log(`    Total: ${reactions.quotes}`, colors.cyan);
+    log(`    Last 24h: ${reactions.recentQuotes}`, colors.cyan);
+    const recentQuotes = getRecentQuotes(3);
+    if (recentQuotes.length > 0) {
+      log(`    Recent quote casts:`, colors.dim);
+      recentQuotes.forEach((quote, i) => {
+        log(`      ${i + 1}. ${quote.did} quoted ${quote.targetHash.substring(0, 20)}...`, colors.dim);
+      });
+    } else {
+      log(`    ⚠️  No recent quote casts found`, colors.yellow);
+    }
+  } else {
+    log(`    ⚠️  Could not check quote casts`, colors.yellow);
+  }
+
+  console.log('');
+
+  // Overall status
+  log('  ✅ Feature Status:', colors.bright);
+  if (stats && reactions) {
+    const hasReplies = stats.totalReplies > 0;
+    const hasReposts = reactions.reposts > 0;
+    const hasQuotes = reactions.quotes > 0;
+
+    log(`    Replies: ${hasReplies ? '✅ Working' : '⚠️  No data'}`, hasReplies ? colors.green : colors.yellow);
+    log(`    Recasts: ${hasReposts ? '✅ Working' : '⚠️  No data'}`, hasReposts ? colors.green : colors.yellow);
+    log(`    Quote Casts: ${hasQuotes ? '✅ Working' : '⚠️  No data'}`, hasQuotes ? colors.green : colors.yellow);
+  } else {
+    log(`    ⚠️  Could not verify feature status`, colors.yellow);
   }
 }
 
@@ -325,11 +558,12 @@ async function showSummary(): Promise<void> {
 async function main() {
   console.clear();
   log('╔════════════════════════════════════════════════════════════╗', colors.cyan);
-  log('║     Daemon Social Network - System Status Check            ║', colors.cyan);
+  log('║  Daemon Social Network - Replies, Recasts & Quote Casts   ║', colors.cyan);
   log('╚════════════════════════════════════════════════════════════╝', colors.cyan);
 
   await checkServices();
   showDatabaseStats();
+  showReactionsDiagnostics();
   await checkRecentActivity();
   showGitInfo();
   showEnvironment();
