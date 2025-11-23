@@ -111,10 +111,9 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
 
       // Validate did format
       if (!did || !did.startsWith('did:daemon:')) {
-        return res.status(400).json({ error: 'Invalid did format. Expected did:daemon:${fid}' });
+        return res.status(400).json({ error: 'Invalid did format. Expected did:daemon:X' });
       }
 
-      const fid = didToFid(did);
       const posts = await gatewayService.getPostsByUser(did, parseInt(limit as string) || 50, cursor as string | undefined);
       res.json({ posts, cursor: posts.length > 0 ? posts[posts.length - 1].hash : undefined });
     } catch (error) {
