@@ -48,24 +48,29 @@ echo ""
 
 # 3.5. Run database migrations
 echo "3.5️⃣  Running database migrations..."
-if [ -f backend/db/migrate-fid-to-did.sql ]; then
-  if [ -n "$DATABASE_URL" ]; then
-    # Extract database name from DATABASE_URL if needed, or use default
-    DB_NAME="${DATABASE_URL##*/}"
-    DB_NAME="${DB_NAME%%\?*}"
-    # Try to run migration (will fail gracefully if already applied)
-    psql "$DATABASE_URL" -f backend/db/migrate-fid-to-did.sql 2>/dev/null || \
-    psql -U daemon -d daemon -f backend/db/migrate-fid-to-did.sql 2>/dev/null || \
-    echo "   ⚠️  Migration skipped (may already be applied or DB not accessible)"
+run_migration() {
+  local migration_file=$1
+  if [ -f "$migration_file" ]; then
+    if [ -n "$DATABASE_URL" ]; then
+      psql "$DATABASE_URL" -f "$migration_file" 2>/dev/null || \
+      psql -U daemon -d daemon -f "$migration_file" 2>/dev/null || \
+      echo "   ⚠️  Migration $migration_file skipped (may already be applied or DB not accessible)"
+    else
+      psql -U daemon -d daemon -f "$migration_file" 2>/dev/null || \
+      echo "   ⚠️  Migration $migration_file skipped (DATABASE_URL not set or DB not accessible)"
+    fi
   else
-    # Try default connection
-    psql -U daemon -d daemon -f backend/db/migrate-fid-to-did.sql 2>/dev/null || \
-    echo "   ⚠️  Migration skipped (DATABASE_URL not set or DB not accessible)"
+    echo "   ⚠️  Migration file $migration_file not found, skipping"
   fi
-  echo "   ✅ Migration check complete"
-else
-  echo "   ⚠️  Migration file not found, skipping"
-fi
+}
+
+# Run FID to DID migration
+run_migration "backend/db/migrate-fid-to-did.sql"
+
+# Run votes table migration (for Reddit-style voting system)
+run_migration "backend/db/migrations/add-votes-table.sql"
+
+echo "   ✅ Migration check complete"
 echo ""
 
 # 4. Install dependencies
