@@ -196,13 +196,28 @@ const config: Config = {
   x402ServiceUrl: process.env.X402_SERVICE_URL || 'http://localhost:3000',
 };
 
-initializeGateway(config).then(({ gatewayService }) => {
-  app.listen(PORT, () => {
-    console.log(`Gateway server running on port ${PORT}`);
-    console.log(`Gateway ID: ${gatewayService.getGatewayId()}`);
-  });
-}).catch((error) => {
-  console.error('Failed to initialize gateway:', error);
-  process.exit(1);
-});
+// Initialize and start server
+(async () => {
+  try {
+    const { gatewayService } = await initializeGateway(config);
+    
+    // Ensure routes are set up before starting server
+    console.log('Routes registered, starting server...');
+    
+    app.listen(PORT, () => {
+      console.log(`Gateway server running on port ${PORT}`);
+      console.log(`Gateway ID: ${gatewayService.getGatewayId()}`);
+      console.log('Available routes:');
+      console.log('  GET  /health');
+      console.log('  GET  /api/v1/profile/:fid');
+      console.log('  PUT  /api/v1/profile/:fid');
+      console.log('  GET  /api/v1/notifications/count');
+      console.log('  GET  /api/v1/feed');
+      console.log('  POST /api/v1/posts');
+    });
+  } catch (error) {
+    console.error('Failed to initialize gateway:', error);
+    process.exit(1);
+  }
+})();
 
