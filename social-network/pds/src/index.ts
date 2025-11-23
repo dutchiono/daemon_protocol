@@ -53,15 +53,24 @@ function setupAPI(app: express.Application, pdsService: PDSService) {
 
       // If walletAddress is provided, use wallet-based signup
       if (walletAddress) {
+        console.log(`[PDS] Creating wallet account: ${walletAddress}, handle: ${handle || 'auto-generated'}`);
         const result = await pdsService.createAccountWithWallet(walletAddress, handle);
+        console.log(`[PDS] Wallet account created successfully: ${result.did}, handle: ${result.handle}`);
         res.json(result);
       } else {
         // Traditional email/password signup
+        console.log(`[PDS] Creating email account: ${handle}`);
         const result = await pdsService.createAccount(handle, email, password, inviteCode);
+        console.log(`[PDS] Email account created successfully: ${result.did}, handle: ${result.handle}`);
         res.json(result);
       }
     } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[PDS] Account creation failed:`, errorMessage);
+      if (error instanceof Error && error.stack) {
+        console.error(`[PDS] Stack trace:`, error.stack);
+      }
+      res.status(400).json({ error: errorMessage });
     }
   });
 

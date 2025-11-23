@@ -120,6 +120,7 @@ pm2 start social-network/pds/dist/index.js --name daemon-pds --update-env \
   --env PDS_PORT="$PDS_PORT" \
   --env PDS_ID="$PDS_ID" \
   --env RPC_URL="$RPC_URL" \
+  --env ID_REGISTRY_ADDRESS="$ID_REGISTRY_ADDRESS" \
   --env ID_REGISTRY_ADDRESS="$ID_REGISTRY_ADDRESS"
 sleep 3
 
