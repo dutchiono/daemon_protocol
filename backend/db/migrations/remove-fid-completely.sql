@@ -22,11 +22,16 @@ ALTER TABLE profiles ADD CONSTRAINT profiles_did_fkey FOREIGN KEY (did) REFERENC
 -- First, add did column if it doesn't exist
 ALTER TABLE user_keys ADD COLUMN IF NOT EXISTS did VARCHAR(255);
 
--- Update did from users table only if fid column still exists
+-- Update did from users table only if both fid columns exist
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_keys' AND column_name = 'fid') THEN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_keys' AND column_name = 'fid')
+     AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'fid') THEN
     UPDATE user_keys uk SET did = u.did FROM users u WHERE uk.fid = u.fid AND uk.did IS NULL;
+  ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_keys' AND column_name = 'fid') THEN
+    -- If users.fid doesn't exist but user_keys.fid does, we can't map them
+    -- This means users table was already migrated - skip the update
+    RAISE NOTICE 'Skipping user_keys did update - users.fid already removed';
   END IF;
 END $$;
 
@@ -43,8 +48,9 @@ BEGIN
   END IF;
 END $$;
 
--- Add new constraints
-ALTER TABLE user_keys ADD CONSTRAINT IF NOT EXISTS user_keys_did_key_bytes_key UNIQUE(did, key_bytes);
+-- Add new constraints (drop first to avoid conflicts)
+ALTER TABLE user_keys DROP CONSTRAINT IF EXISTS user_keys_did_key_bytes_key;
+ALTER TABLE user_keys ADD CONSTRAINT user_keys_did_key_bytes_key UNIQUE(did, key_bytes);
 ALTER TABLE user_keys DROP CONSTRAINT IF EXISTS user_keys_did_fkey;
 ALTER TABLE user_keys ADD CONSTRAINT user_keys_did_fkey FOREIGN KEY (did) REFERENCES users(did) ON DELETE CASCADE;
 
@@ -70,6 +76,7 @@ DROP INDEX IF EXISTS idx_reactions_fid_type;
 CREATE INDEX IF NOT EXISTS idx_reactions_did_type ON reactions(did, reaction_type);
 DROP INDEX IF EXISTS idx_reactions_fid_target;
 ALTER TABLE reactions DROP CONSTRAINT IF EXISTS reactions_fid_target_hash_reaction_type_key;
+ALTER TABLE reactions DROP CONSTRAINT IF EXISTS reactions_did_target_hash_reaction_type_key;
 ALTER TABLE reactions ADD CONSTRAINT reactions_did_target_hash_reaction_type_key UNIQUE(did, target_hash, reaction_type);
 
 -- Step 7: Update follows table (already has follower_did and following_did from previous migration)
@@ -85,7 +92,17 @@ CREATE INDEX IF NOT EXISTS idx_follows_following_did ON follows(following_did);
 -- Step 8: Update feeds table
 ALTER TABLE feeds DROP CONSTRAINT IF EXISTS feeds_fid_fkey CASCADE;
 ALTER TABLE feeds DROP COLUMN IF EXISTS fid CASCADE;
-ALTER TABLE feeds ALTER COLUMN did SET NOT NULL;
+-- Add did column if it doesn't exist
+ALTER TABLE feeds ADD COLUMN IF NOT EXISTS did VARCHAR(255);
+-- Set did as NOT NULL only if column exists and has data
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'feeds' AND column_name = 'did') THEN
+    IF EXISTS (SELECT 1 FROM feeds WHERE did IS NOT NULL LIMIT 1) THEN
+      ALTER TABLE feeds ALTER COLUMN did SET NOT NULL;
+    END IF;
+  END IF;
+END $$;
 ALTER TABLE feeds DROP CONSTRAINT IF EXISTS feeds_did_fkey;
 ALTER TABLE feeds ADD CONSTRAINT feeds_did_fkey FOREIGN KEY (did) REFERENCES users(did) ON DELETE CASCADE;
 DROP INDEX IF EXISTS idx_feeds_fid CASCADE;
