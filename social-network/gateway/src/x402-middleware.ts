@@ -39,6 +39,12 @@ export function x402Middleware(config: Config) {
       return next();
     }
 
+    // Allow disabling x402 middleware via environment variable (for development)
+    if (process.env.DISABLE_X402 === 'true' || process.env.DISABLE_X402 === '1') {
+      logger.debug(`x402 middleware disabled via DISABLE_X402 env var - allowing free access`);
+      return next();
+    }
+
     // If StorageRegistry is not configured, allow free access (testnet/dev mode)
     if (!storageRegistry || !idRegistry) {
       logger.debug(`StorageRegistry not configured - allowing free access (testnet mode)`);
@@ -129,6 +135,25 @@ function getFidFromRequest(req: Request): number | null {
   if (fidBody) {
     const fid = typeof fidBody === 'number' ? fidBody : parseInt(fidBody, 10);
     if (!isNaN(fid)) return fid;
+  }
+
+  // Try to extract FID from DID in body or query
+  const didBody = (req.body as any)?.did;
+  if (didBody && typeof didBody === 'string') {
+    const match = didBody.match(/^did:daemon:(\d+)$/);
+    if (match && match[1]) {
+      const fid = parseInt(match[1], 10);
+      if (!isNaN(fid)) return fid;
+    }
+  }
+
+  const didQuery = req.query.did as string;
+  if (didQuery && typeof didQuery === 'string') {
+    const match = didQuery.match(/^did:daemon:(\d+)$/);
+    if (match && match[1]) {
+      const fid = parseInt(match[1], 10);
+      if (!isNaN(fid)) return fid;
+    }
   }
 
   return null;

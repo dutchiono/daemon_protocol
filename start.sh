@@ -139,6 +139,7 @@ export PDS_ID="${PDS_ID:-pds-1}"
 export RPC_URL="${RPC_URL:-https://sepolia.base.org}"
 export REDIS_URL="${REDIS_URL:-}"
 export X402_SERVICE_URL="${X402_SERVICE_URL:-http://localhost:3000}"
+export DISABLE_X402="${DISABLE_X402:-true}"  # Disable payment middleware for development
 export ID_REGISTRY_ADDRESS="${ID_REGISTRY_ADDRESS:-}"
 export KEY_REGISTRY_ADDRESS="${KEY_REGISTRY_ADDRESS:-}"
 export BOOTSTRAP_NODES="${BOOTSTRAP_NODES:-}"
@@ -173,6 +174,7 @@ pm2 start social-network/gateway/dist/index.js --name daemon-gateway --update-en
   --env PDS_ENDPOINTS="$PDS_ENDPOINTS" \
   --env REDIS_URL="$REDIS_URL" \
   --env X402_SERVICE_URL="$X402_SERVICE_URL" \
+  --env DISABLE_X402="$DISABLE_X402" \
   --env RPC_URL="$RPC_URL"
 
 pm2 save
