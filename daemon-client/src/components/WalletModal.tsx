@@ -16,8 +16,23 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [fidJustRegistered, setFidJustRegistered] = useState(false);
 
-  // Normalize PDS URL - handle both Nginx proxy (with /xrpc) and direct PDS (port 4002)
-  const PDS_BASE = import.meta.env.VITE_PDS_URL || 'http://50.21.187.69:4002';
+  // Auto-detect PDS URL from current page (HTTPS in production, HTTP in dev)
+  const getPdsUrl = () => {
+    if (typeof window !== 'undefined') {
+      const protocol = window.location.protocol;
+      const host = window.location.host;
+      
+      // If on production domain, use same protocol and host with /xrpc
+      if (host.includes('daemon.bushleague.xyz') || host.includes('bushleague.xyz')) {
+        return `${protocol}//${host}/xrpc`;
+      }
+    }
+    
+    // Fallback to env var or direct PDS URL for dev
+    return import.meta.env.VITE_PDS_URL || 'http://50.21.187.69:4002';
+  };
+
+  const PDS_BASE = getPdsUrl();
   // If URL already ends with /xrpc, use it as-is (don't add /xrpc again)
   // Otherwise, it's a direct PDS URL and we need to add /xrpc
   const PDS_URL = PDS_BASE.replace(/\/+$/, ''); // Remove trailing slashes
