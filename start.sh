@@ -61,75 +61,13 @@ find social-network -path "*/src/*.d.ts.map" -type f -delete 2>/dev/null || true
 echo "   ✅ Cleaned"
 echo ""
 
-# 4. Run database migrations
-echo "3.5️⃣  Running database migrations..."
-run_migration() {
-  local migration_file=$1
-  if [ ! -f "$migration_file" ]; then
-    echo "   ⚠️  Migration file $migration_file not found, skipping"
-    return 0
-  fi
-  
-  echo "   Running migration: $migration_file"
-  local exit_code=0
-  
-  if [ -n "$DATABASE_URL" ]; then
-    psql "$DATABASE_URL" -f "$migration_file" || exit_code=$?
-    if [ $exit_code -ne 0 ]; then
-      echo "   ⚠️  Migration failed with DATABASE_URL, trying direct connection..."
-      psql -U daemon -d daemon -f "$migration_file" || exit_code=$?
-    fi
-  else
-    psql -U daemon -d daemon -f "$migration_file" || exit_code=$?
-  fi
-  
-  if [ $exit_code -ne 0 ]; then
-    echo "   ❌ Migration $migration_file FAILED with exit code $exit_code"
-    echo "   Check the errors above and fix them before continuing"
-    echo "   You may need to run migrations manually or fix permissions"
-    return $exit_code
-  else
-    echo "   ✅ Migration $migration_file completed successfully"
-  fi
-}
-
-# Run FID to DID migration (adds did columns)
-if ! run_migration "backend/db/migrate-fid-to-did.sql"; then
-  echo "   ⚠️  FID to DID migration had errors, but continuing..."
-fi
-
-# Run migration to remove FID completely and use DID as primary key
-if ! run_migration "backend/db/migrations/remove-fid-completely.sql"; then
-  echo "   ❌ CRITICAL: remove-fid-completely migration failed!"
-  echo "   This migration is required for the system to work correctly."
-  echo "   Please fix the errors above and run the migration manually:"
-  echo "   psql -U daemon -d daemon -f backend/db/migrations/remove-fid-completely.sql"
-  echo ""
-  echo "   Common issues:"
-  echo "   - Permission errors: Run as postgres superuser or grant ownership"
-  echo "   - Constraint errors: Some constraints may need manual CASCADE drops"
-  echo ""
-  read -p "   Continue anyway? (y/N) " -n 1 -r
-  echo
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    exit 1
-  fi
-fi
-
-# Run votes table migration (for Reddit-style voting system)
-# Use absolute path from repo root to ensure it's found
-MIGRATION_FILE="backend/db/migrations/add-votes-table.sql"
-if [ -f "$MIGRATION_FILE" ]; then
-  run_migration "$MIGRATION_FILE"
-else
-  # Try alternative path
-  run_migration "$(pwd)/backend/db/migrations/add-votes-table.sql"
-fi
-
-# Run follows DID unique constraint migration
-run_migration "backend/db/migrations/add-follows-did-unique.sql"
-
-echo "   ✅ Migration check complete"
+# 4. Database migrations (skipped - run manually when needed)
+# Migrations should be run once manually, not on every start
+# To run migrations manually:
+#   sudo -u postgres psql -d daemon -f backend/db/migrations/remove-fid-completely.sql
+#   psql -U daemon -d daemon -f backend/db/migrations/add-votes-table.sql
+#   psql -U daemon -d daemon -f backend/db/migrations/add-follows-did-unique.sql
+echo "3.5️⃣  Skipping database migrations (run manually when needed)"
 echo ""
 
 # 5. Install dependencies
