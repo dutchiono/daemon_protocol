@@ -10,6 +10,10 @@ export interface Post {
   parentHash?: string;
   timestamp: number;
   embeds?: any[];
+  voteCount?: number; // Net votes (upvotes - downvotes)
+  upvoteCount?: number;
+  downvoteCount?: number;
+  currentVote?: 'UP' | 'DOWN' | null; // Current user's vote
 }
 
 export interface Profile {
@@ -33,5 +37,20 @@ export interface Reaction {
   targetHash: string;
   did: string; // did:daemon:${fid}
   timestamp: number;
+}
+
+export interface Vote {
+  did: string; // did:daemon:${fid}
+  targetHash: string;
+  targetType: 'post' | 'comment';
+  voteType: 'UP' | 'DOWN';
+  timestamp: number;
+}
+
+export interface PostWithVotes extends Post {
+  voteCount?: number; // Net votes (upvotes - downvotes)
+  upvoteCount?: number;
+  downvoteCount?: number;
+  currentVote?: 'UP' | 'DOWN' | null; // Current user's vote
 }
 
