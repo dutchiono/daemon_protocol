@@ -39,6 +39,12 @@ export function x402Middleware(config: Config) {
       return next();
     }
 
+    // If StorageRegistry is not configured, allow free access (testnet/dev mode)
+    if (!storageRegistry || !idRegistry) {
+      logger.debug(`StorageRegistry not configured - allowing free access (testnet mode)`);
+      return next();
+    }
+
     // Check for valid access token
     const token = req.headers['x-access-token'] as string;
 
@@ -51,33 +57,33 @@ export function x402Middleware(config: Config) {
     }
 
     // Check StorageRegistry if available
-    if (storageRegistry && idRegistry) {
-      try {
-        // Try to get FID from request (could be in header, query, or body)
-        const fid = getFidFromRequest(req);
+    try {
+      // Try to get FID from request (could be in header, query, or body)
+      const fid = getFidFromRequest(req);
 
-        if (fid) {
-          // Check if testnet mode (free storage)
-          const testnetMode = await storageRegistry.testnetMode();
+      if (fid) {
+        // Check if testnet mode (free storage)
+        const testnetMode = await storageRegistry.testnetMode();
 
-          if (testnetMode) {
-            // Free on testnet - allow access
-            logger.debug(`Testnet mode: allowing free access for FID ${fid}`);
-            return next();
-          }
-
-          // Check storage units
-          const storageUnits = await storageRegistry.getStorageUnits(fid);
-          if (storageUnits > 0) {
-            // User has storage - allow access
-            logger.debug(`FID ${fid} has ${storageUnits} storage units - allowing access`);
-            return next();
-          }
+        if (testnetMode) {
+          // Free on testnet - allow access
+          logger.debug(`Testnet mode: allowing free access for FID ${fid}`);
+          return next();
         }
-      } catch (error) {
-        logger.error(`Error checking StorageRegistry: ${error}`);
-        // Fall through to payment request
+
+        // Check storage units
+        const storageUnits = await storageRegistry.getStorageUnits(fid);
+        if (storageUnits > 0) {
+          // User has storage - allow access
+          logger.debug(`FID ${fid} has ${storageUnits} storage units - allowing access`);
+          return next();
+        }
       }
+    } catch (error) {
+      logger.error(`Error checking StorageRegistry: ${error}`);
+      // If StorageRegistry check fails, allow access (testnet/dev mode)
+      logger.debug(`StorageRegistry check failed - allowing free access (testnet mode)`);
+      return next();
     }
 
     // Generate payment request
