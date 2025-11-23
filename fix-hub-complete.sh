@@ -4,9 +4,16 @@ echo "🔧 Complete Hub Fix"
 echo "=========================="
 echo ""
 
-echo "1️⃣  Stopping Hub..."
+echo "1️⃣  Stopping Hub and freeing port 4001..."
 pm2 stop daemon-hub 2>/dev/null || true
 pm2 delete daemon-hub 2>/dev/null || true
+
+# Kill any process using port 4001
+if lsof -ti:4001 >/dev/null 2>&1; then
+  echo "   Killing process on port 4001..."
+  lsof -ti:4001 | xargs kill -9 2>/dev/null || true
+  sleep 1
+fi
 echo ""
 
 echo "2️⃣  Pulling latest changes..."
