@@ -1,7 +1,22 @@
 import axios from 'axios';
 
-// Remove trailing /api if present - the requests already include /api/v1/...
-const BASE_URL = import.meta.env.VITE_GATEWAY_URL || 'http://localhost:4003';
+// Auto-detect URL from current page (HTTPS in production, HTTP in dev)
+const getBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    const protocol = window.location.protocol;
+    const host = window.location.host;
+    
+    // If on production domain, use same protocol and host
+    if (host.includes('daemon.bushleague.xyz') || host.includes('bushleague.xyz')) {
+      return `${protocol}//${host}`;
+    }
+  }
+  
+  // Fallback to env var or localhost for dev
+  return import.meta.env.VITE_GATEWAY_URL || 'http://localhost:4003';
+};
+
+const BASE_URL = getBaseUrl();
 const API_URL = BASE_URL.replace(/\/api\/?$/, '');
 
 // Simplified client - no x402 for now (can add later)
