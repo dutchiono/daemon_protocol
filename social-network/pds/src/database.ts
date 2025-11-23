@@ -43,11 +43,22 @@ export class Database {
   }
 
   async createProfile(did: string, handle: string): Promise<void> {
+    // Extract FID from DID: did:daemon:1 -> 1
+    const fidMatch = did.match(/^did:daemon:(\d+)$/);
+    if (!fidMatch) {
+      throw new Error(`Invalid DID format: ${did}`);
+    }
+    const fid = parseInt(fidMatch[1], 10);
+    
+    if (isNaN(fid) || fid <= 0) {
+      throw new Error(`Invalid FID extracted from DID: ${did}`);
+    }
+
     await this.pool.query(
       `INSERT INTO profiles (fid, username, display_name, created_at)
-       VALUES ((SELECT fid FROM users WHERE address = $1), $2, $2, NOW())
-       ON CONFLICT (fid) DO UPDATE SET username = $2`,
-      [did, handle] // This is simplified - would need proper FID mapping
+       VALUES ($1, $2, $2, NOW())
+       ON CONFLICT (fid) DO UPDATE SET username = $2, updated_at = NOW()`,
+      [fid, handle]
     );
   }
 

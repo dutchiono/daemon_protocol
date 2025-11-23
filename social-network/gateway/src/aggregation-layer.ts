@@ -280,6 +280,11 @@ export class AggregationLayer {
       website?: string;
     }
   ): Promise<Profile> {
+    // Validate fid
+    if (!fid || isNaN(fid) || fid <= 0) {
+      throw new Error('Invalid fid: fid must be a positive number');
+    }
+    
     // First, ensure the user exists in the users table
     const userCheck = await this.db.query(
       `SELECT fid FROM users WHERE fid = $1`,
@@ -551,7 +556,7 @@ export class AggregationLayer {
     if (!this.pdsEndpoints || this.pdsEndpoints.length === 0) {
       return null;
     }
-    
+
     // Gateway makes server-side requests, so use direct PDS URL
     // Nginx proxy is only for client-side requests
     return this.pdsEndpoints[0];

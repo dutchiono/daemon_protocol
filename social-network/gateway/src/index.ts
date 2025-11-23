@@ -82,6 +82,12 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
   app.get('/api/v1/profile/:fid', async (req, res) => {
     try {
       const fid = parseInt(req.params.fid);
+      
+      // Validate fid
+      if (isNaN(fid) || fid <= 0) {
+        return res.status(400).json({ error: 'Invalid fid' });
+      }
+      
       const profile = await gatewayService.getProfile(fid);
       if (!profile) {
         // Return empty profile instead of 404 to make frontend handling easier
@@ -105,6 +111,12 @@ function setupAPI(app: express.Application, gatewayService: GatewayService, conf
   protectedRoutes.put('/api/v1/profile/:fid', async (req, res) => {
     try {
       const fid = parseInt(req.params.fid);
+      
+      // Validate fid
+      if (isNaN(fid) || fid <= 0) {
+        return res.status(400).json({ error: 'Invalid fid' });
+      }
+      
       const { username, displayName, bio, avatar, banner, website } = req.body;
 
       const profile = await gatewayService.updateProfile(fid, {
