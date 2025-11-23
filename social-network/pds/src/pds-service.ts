@@ -121,7 +121,7 @@ export class PDSService {
       }
 
       // Generate DID from FID
-      const did = `did:daemon:fid-${fid.toString()}`;
+      const did = `did:daemon:${fid.toString()}`;
 
       // Create user account (no email/password for wallet signup)
       await this.db.createUser(did, finalHandle, '', ''); // Empty email/password for wallet accounts
