@@ -1,92 +1,269 @@
-# Daemon Social Network
+# Daemon Protocol
 
-**Decentralized social network** combining Farcaster (Snapchain) + Bluesky (AT Protocol).
+A production-grade decentralized social networking protocol combining P2P mesh networking (libp2p), AT Protocol compatibility, and Farcaster-inspired identity primitives.
+
+## Architecture
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   Gateway       │────▶│      PDS        │────▶│      Hub        │
+│   (GraphQL)     │     │  (AT Protocol)  │     │   (libp2p P2P)  │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+        │                       │                        │
+        ├───────────────────────┴────────────────────────┘
+        │
+┌───────▼──────────────────────────────────────────────────┐
+│                    PostgreSQL Database                    │
+│  - Users, Messages, Reactions, Follows                   │
+│  - Trending Algorithm, Feed Generation                   │
+└───────────────────────────────────────────────────────────┘
+```
+
+### Components
+
+#### Hub Service (Rust + libp2p)
+P2P message propagation layer:
+- **Kademlia DHT** for peer discovery
+- **GossipSub** for pub/sub messaging with topic routing
+- **QUIC transport** with TLS 1.3 for performance and security
+- **Ed25519 signatures** for message authentication
+- **Token bucket rate limiting** for spam protection
+- **Prometheus metrics** for observability
+
+#### PDS (Personal Data Server - Rust)
+AT Protocol-compatible data repository:
+- **DID:plc** identity resolution
+- **Repository storage** with Merkle clock (CAR format)
+- **XRPC API** endpoints for record operations
+- **OAuth 2.0 + DPoP** authentication
+- **Blob storage** with IPFS pinning
+- **Event streaming** firehose for real-time sync
+
+#### Gateway (Node.js + TypeScript)
+GraphQL API aggregation layer:
+- **Apollo Server 4** with federation support
+- **WebSocket subscriptions** for real-time updates
+- **Redis caching** with intelligent invalidation
+- **DataLoader** for N+1 query optimization
+- **Rate limiting** per API key
+- **REST fallback** endpoints
+
+#### Smart Contract (Solidity 0.8.20)
+On-chain identity registry on Base L2:
+- **FID registration** with collision-free assignment
+- **Ed25519 key management** for signing operations
+- **Transfer & recovery** mechanisms
+- **Pause/emergency** controls
+- **Foundry test suite** with 100% coverage
 
 ## Quick Start
 
-### Run Node (One Command!)
+### Prerequisites
+- Docker & Docker Compose
+- Node.js 20+
+- Rust 1.75+
+- PostgreSQL 16
+- Redis 7
 
-**First Time Setup:**
+### Development Setup
+
+1. **Clone the repository**
 ```bash
-# Setup database (optional but recommended)
-./scripts/setup-database.sh
-# See DATABASE_SETUP.md for manual setup
+git clone https://github.com/iono-such-things/daemon_protocol.git
+cd daemon_protocol
 ```
 
-**Run Node:**
+2. **Start infrastructure**
 ```bash
-cd daemon-node
-npm install
-npm run build
-npm start all
+docker-compose up -d postgres redis
 ```
 
-**Note:** Database is optional. Node works without it but with limited features.
-
-### Run Client
+3. **Initialize database**
 ```bash
-cd daemon-client
+psql postgres://daemon:daemon_pass@localhost:5432/daemon_protocol < database/schema.sql
+```
+
+4. **Run services**
+
+**Hub (P2P Node):**
+```bash
+cd services/hub
+cargo run --release
+```
+
+**PDS (Data Server):**
+```bash
+cd services/pds
+cargo run --release
+```
+
+**Gateway (GraphQL):**
+```bash
+cd services/gateway
 npm install
 npm run dev
-npm run electron:dev
 ```
 
-## What's Included
+5. **Access services**
+- Gateway GraphQL Playground: http://localhost:4000/graphql
+- Hub Metrics: http://localhost:9090/metrics
+- PDS API: http://localhost:3000
+- Grafana Dashboard: http://localhost:3001
 
-### ✅ Node (`daemon-node`)
-- Hub (P2P message relay with DHT)
-- PDS (Personal Data Server)
-- Gateway (API endpoint)
-- **One program runs everything!**
+### Production Deployment
 
-### ✅ Client (`daemon-client`)
-- Windows Electron app
-- Feed, Notifications, Channels, Settings
-- Wallet connection
-- Farcaster-style UI
+```bash
+docker-compose up -d
+```
 
-### ✅ Tests
-- Unit tests
-- Integration tests
-- E2E tests
+All services will start with:
+- Prometheus metrics on `:9091`
+- Grafana dashboards on `:3001`
+- Jaeger tracing UI on `:16686`
 
-## Production Status
+## API Examples
 
-**✅ Ready for Beta Testing!**
+### GraphQL Queries
 
-**Current Server:** `50.21.187.69` (ubuntu)
+**Get user feed:**
+```graphql
+query {
+  feed(algorithm: "following", limit: 50) {
+    messages {
+      hash
+      content {
+        text
+        mentions
+      }
+      author {
+        username
+        displayName
+      }
+      reactionCount
+      createdAt
+    }
+    hasMore
+    cursor
+  }
+}
+```
 
-**Services Running:**
-- Hub HTTP API: `http://50.21.187.69:4001`
-- PDS AT Protocol: `http://50.21.187.69:4002`
-- Gateway REST API: `http://50.21.187.69:4003`
-- Hub WebSocket: `ws://50.21.187.69:5001`
+**Create a message:**
+```graphql
+mutation {
+  createMessage(
+    text: "Hello decentralized world!"
+    mentions: ["123", "456"]
+  ) {
+    hash
+    createdAt
+  }
+}
+```
 
-**Status:** Core features working. See `PRODUCTION_READY.md` for full status.
+**Subscribe to live feed:**
+```graphql
+subscription {
+  messageFeed {
+    hash
+    author {
+      username
+    }
+    content {
+      text
+    }
+  }
+}
+```
 
-## Documentation
+### REST API
 
-### For Users/Developers
-- **[API Documentation](API_DOCUMENTATION.md)** - Complete API reference with all endpoints
-- **[Client Integration Guide](CLIENT_INTEGRATION_GUIDE.md)** - How to integrate the API in your app
-- **[Client Setup](CLIENT_SETUP.md)** - Configure clients to connect to server
-- **[Production Ready](PRODUCTION_READY.md)** - Production status and readiness checklist
+**Get user by FID:**
+```bash
+curl http://localhost:4000/api/user/123
+```
 
-### For Operators
-- **[Production Checklist](PRODUCTION_CHECKLIST.md)** - What's done and what's needed
-- **[Bootstrap Setup](BOOTSTRAP_SETUP.md)** - Setting up bootstrap nodes
-- **[Peer Discovery](PEER_DISCOVERY.md)** - How nodes discover each other
+**Upload blob:**
+```bash
+curl -X POST http://localhost:3000/xrpc/com.atproto.blob.upload \
+  -H "Content-Type: image/png" \
+  --data-binary @avatar.png
+```
 
-## Quick Links
+## Development
 
-- `docs/SNAPCHAIN_OPTIMISM.md` - Understanding the architecture
-- `BLOCKCHAIN_NEEDED.md` - What blockchain things are needed
-- `PRODUCTION_CHECKLIST.md` - Production readiness
-- `GETTING_STARTED.md` - Quick start guide
+### Running Tests
 
-## Key Insight
+**Rust:**
+```bash
+cd services/hub && cargo test
+cd services/pds && cargo test
+```
 
-**Snapchain = Off-chain P2P network (messages)**
-**Optimism = On-chain identity (FID registration)**
+**TypeScript:**
+```bash
+cd services/gateway && npm test
+```
 
-Messages work **without blockchain** - you only need Optimism for FID registration!
+**Solidity:**
+```bash
+cd contracts && forge test
+```
+
+### Code Quality
+
+**Rust linting:**
+```bash
+cargo clippy -- -D warnings
+cargo fmt --check
+```
+
+**TypeScript linting:**
+```bash
+npm run lint
+npm run type-check
+```
+
+### Monitoring
+
+- **Prometheus**: Scrapes metrics from all services
+- **Grafana**: Pre-configured dashboards for system health
+- **Jaeger**: Distributed tracing for request flows
+
+Access Grafana at http://localhost:3001 (admin/admin)
+
+## Security
+
+- **Authentication**: OAuth 2.0 with JWT + DPoP tokens
+- **Authorization**: Role-based access control (RBAC)
+- **Rate Limiting**: Token bucket algorithm per peer/API key
+- **Input Validation**: Zod schemas for runtime type checking
+- **SQL Injection**: Prepared statements with parameterized queries
+- **Key Storage**: Hardware security module (HSM) support for production
+
+## Performance
+
+- **Connection Pooling**: PostgreSQL max 20 connections
+- **Redis Caching**: 5-minute TTL for hot data
+- **DataLoader Batching**: Automatic N+1 query optimization
+- **QUIC Transport**: 0-RTT connection establishment
+- **Prepared Statements**: Query plan caching
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details
+
+## Acknowledgments
+
+- AT Protocol specification
+- Farcaster protocol design
+- libp2p networking stack
+- Apollo GraphQL ecosystem
