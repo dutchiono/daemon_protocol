@@ -1,0 +1,179 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: daemon-postgres
+    environment:
+      POSTGRES_DB: daemon_protocol
+      POSTGRES_USER: daemon
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-daemon_pass}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U daemon"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - daemon-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: daemon-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - daemon-network
+
+  # Hub Service (P2P Node)
+  hub:
+    build:
+      context: ./services/hub
+      dockerfile: Dockerfile
+    container_name: daemon-hub
+    environment:
+      RUST_LOG: info
+      DATABASE_URL: postgres://daemon:${DB_PASSWORD:-daemon_pass}@postgres:5432/daemon_protocol
+      BOOTSTRAP_PEERS: ${BOOTSTRAP_PEERS:-}
+    ports:
+      - "4001:4001"     # libp2p
+      - "9090:9090"     # Metrics
+    volumes:
+      - hub_data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - daemon-network
+    restart: unless-stopped
+
+  # PDS (Personal Data Server)
+  pds:
+    build:
+      context: ./services/pds
+      dockerfile: Dockerfile
+    container_name: daemon-pds
+    environment:
+      RUST_LOG: info
+      DATABASE_URL: postgres://daemon:${DB_PASSWORD:-daemon_pass}@postgres:5432/daemon_protocol
+      REDIS_URL: redis://redis:6379
+      IPFS_API: ${IPFS_API:-}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - daemon-network
+    restart: unless-stopped
+
+  # Gateway (GraphQL API)
+  gateway:
+    build:
+      context: ./services/gateway
+      dockerfile: Dockerfile
+    container_name: daemon-gateway
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: daemon_protocol
+      DB_USER: daemon
+      DB_PASSWORD: ${DB_PASSWORD:-daemon_pass}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_production}
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - daemon-network
+    restart: unless-stopped
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: daemon-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9091:9090"
+    networks:
+      - daemon-network
+    restart: unless-stopped
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: daemon-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: redis-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - daemon-network
+    restart: unless-stopped
+
+  # Jaeger (Distributed Tracing)
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: daemon-jaeger
+    environment:
+      COLLECTOR_ZIPKIN_HOST_PORT: :9411
+    ports:
+      - "5775:5775/udp"   # Zipkin compact
+      - "6831:6831/udp"   # Jaeger compact
+      - "6832:6832/udp"   # Jaeger binary
+      - "5778:5778"       # Config
+      - "16686:16686"     # UI
+      - "14268:14268"     # Direct
+      - "14250:14250"     # Model proto
+      - "9411:9411"       # Zipkin
+    networks:
+      - daemon-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  hub_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  daemon-network:
+    driver: bridge
